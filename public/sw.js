@@ -1,5 +1,5 @@
 // Service Worker for LoveCare PWA (Network-first with offline fallback)
-const CACHE_NAME = 'lovecare-v2';
+const CACHE_NAME = 'lovecare-v3';
 
 self.addEventListener('install', (event) => {
   // Activate worker immediately
@@ -15,6 +15,16 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => self.clients.claim())
   );
+});
+
+// Support manual cache busting / update reload from app
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+  }
 });
 
 self.addEventListener('fetch', (event) => {

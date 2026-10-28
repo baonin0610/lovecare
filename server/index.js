@@ -67,10 +67,33 @@ const upload = multer({
 // Serve static files from uploads and frontend build (dist)
 app.use('/uploads', express.static(UPLOADS_DIR));
 
+// Unique build identifier to detect and notify users of new versions automatically
+const BUILD_ID = process.env.RENDER_GIT_COMMIT || `build-${Date.now()}`;
+
 const DIST_DIR = path.join(__dirname, '../dist');
 if (fs.existsSync(DIST_DIR)) {
-  app.use(express.static(DIST_DIR));
+  app.use(express.static(DIST_DIR, {
+    setHeaders: (res, filePath) => {
+      // Never cache index.html or sw.js so PWA / iOS devices immediately detect updates
+      if (filePath.endsWith('index.html') || filePath.endsWith('sw.js')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    }
+  }));
 }
+
+// Version endpoint for client to detect new updates
+app.get('/api/version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.json({
+    buildId: BUILD_ID,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Vietnam (Asia/Ho_Chi_Minh GMT+7) Time Helpers
 function getTodayString() {
@@ -94,6 +117,9 @@ function getVietnamTimeString(date = new Date()) {
 // Socket.io connection logic
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
+
+  // Send current server build ID to client for version update check
+  socket.emit('server_build_id', { buildId: BUILD_ID });
 
   socket.on('join_couple', (coupleId) => {
     if (!coupleId) return;
@@ -697,13 +723,16 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// Fallback for SPA routing
+// Fallback for SPA routing with strict no-cache on index.html
 app.use((req, res, next) => {
   if (req.url.startsWith('/api') || req.url.startsWith('/uploads') || req.url.startsWith('/socket.io')) {
     return next();
   }
   const indexPath = path.join(__dirname, '../dist/index.html');
   if (fs.existsSync(indexPath)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     return res.sendFile(indexPath);
   }
   res.send('LoveCare API is running. Build frontend with `npm run build` or use Vite dev server.');
@@ -742,7 +771,18 @@ setInterval(() => {
   });
 }, 25000);
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`[Server] Couple Care App running on http://localhost:${PORT}`);
-});
+// Start server after ensuring Supabase cloud data is completely restored
+async function startServer() {
+  console.log('[Server] Restoring database from Supabase cloud...');
+  try {
+    await db.readyPromise;
+  } catch (err) {
+    console.warn('[Server] Supabase restore notice:', err.message);
+  }
+
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Server] Couple Care App running on http://localhost:${PORT} (Build: ${BUILD_ID})`);
+  });
+}
+
+startServer();

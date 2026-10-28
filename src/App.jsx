@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
 import { CaretakerView } from './components/CaretakerView';
 import { LoverView } from './components/LoverView';
@@ -8,6 +8,7 @@ import { NudgeModal } from './components/NudgeModal';
 import { AlarmScreenModal } from './components/AlarmScreenModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { CameraCaptureModal } from './components/CameraCaptureModal';
+import { UpdatePromptModal } from './components/UpdatePromptModal';
 import {
   Heart,
   Droplets,
@@ -15,7 +16,8 @@ import {
   Repeat,
   LogOut,
   ShieldCheck,
-  Bell
+  Bell,
+  RefreshCw
 } from 'lucide-react';
 import { api } from './services/api';
 import { IS_DEV_MODE } from './config';
@@ -25,6 +27,7 @@ export function App() {
   const {
     user,
     couple,
+    socket,
     logout,
     quickSwitch,
     activeNudge,
@@ -42,8 +45,109 @@ export function App() {
   const [isAlarmSnapOpen, setIsAlarmSnapOpen] = useState(false);
   const [needsNotifPermission, setNeedsNotifPermission] = useState(false);
 
+  // App version update detection
+  const [hasNewUpdate, setHasNewUpdate] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const currentBuildIdRef = useRef(null);
+
   const isCaretaker = user?.role === 'caretaker';
   const isCoupleConnected = couple && couple.caretakerId && couple.loverId;
+
+  // Function to check server version
+  const checkForUpdates = async () => {
+    try {
+      const res = await fetch(`/api/version?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.buildId) return;
+
+      if (!currentBuildIdRef.current) {
+        currentBuildIdRef.current = data.buildId;
+      } else if (currentBuildIdRef.current !== data.buildId) {
+        console.log(`[Version Check] New build detected: ${data.buildId} (Current: ${currentBuildIdRef.current})`);
+        setHasNewUpdate(true);
+        setIsUpdateModalOpen(true);
+      }
+    } catch (e) {
+      // Ignore network errors
+    }
+  };
+
+  useEffect(() => {
+    // 1. Initial version check
+    checkForUpdates();
+
+    // 2. Periodic background check every 35 seconds
+    const interval = setInterval(checkForUpdates, 35000);
+
+    // 3. Check when user unlocks or re-opens app / switches tabs
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkForUpdates();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', checkForUpdates);
+
+    // 4. Socket listener for real-time instant notification on server redeploy
+    if (socket) {
+      const handleServerBuildId = ({ buildId }) => {
+        if (!buildId) return;
+        if (!currentBuildIdRef.current) {
+          currentBuildIdRef.current = buildId;
+        } else if (currentBuildIdRef.current !== buildId) {
+          console.log(`[Socket Version] New build received: ${buildId}`);
+          setHasNewUpdate(true);
+          setIsUpdateModalOpen(true);
+        }
+      };
+      socket.on('server_build_id', handleServerBuildId);
+      return () => {
+        socket.off('server_build_id', handleServerBuildId);
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        window.removeEventListener('focus', checkForUpdates);
+      };
+    }
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', checkForUpdates);
+    };
+  }, [socket]);
+
+  // Clean, instantaneous update handler without needing to remove the app from Home Screen
+  const handleApplyUpdate = async () => {
+    try {
+      // 1. Tell active service worker to skip waiting & clear old caches
+      if ('serviceWorker' in navigator) {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+        }
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          await reg.update();
+        }
+      }
+      // 2. Clear browser CacheStorage
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      }
+    } catch (err) {
+      console.warn('Update clear cache error:', err);
+    }
+
+    // 3. Force hard reload bypassing cache with timestamp parameter
+    const url = new URL(window.location.href);
+    url.searchParams.set('reload', Date.now().toString());
+    window.location.replace(url.toString());
+  };
 
   // Check notification permission on mount
   useEffect(() => {
@@ -162,6 +266,25 @@ export function App() {
           </div>
         </header>
 
+        {/* App Version Update Notice Banner */}
+        {hasNewUpdate && (
+          <div className="mb-3 p-3 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white flex items-center justify-between gap-3 shadow-md shadow-rose-500/20 text-xs animate-in fade-in">
+            <div className="flex items-center gap-2 min-w-0">
+              <RefreshCw className="w-4 h-4 animate-spin shrink-0 text-white" />
+              <div className="truncate">
+                <span className="font-bold block text-xs">Có bản cập nhật mới!</span>
+                <span className="text-[11px] text-white/90">Bấm để tải lại phiên bản mới nhất</span>
+              </div>
+            </div>
+            <button
+              onClick={handleApplyUpdate}
+              className="px-3.5 py-1.5 bg-white text-rose-600 rounded-xl font-bold text-xs shrink-0 active:scale-95 transition shadow-xs"
+            >
+              Cập nhật ngay
+            </button>
+          </div>
+        )}
+
         {/* iPhone Notification Permission Banner */}
         {needsNotifPermission && user && (
           <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-3 text-xs">
@@ -250,10 +373,26 @@ export function App() {
                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
                 <span>Bảo mật tài khoản & dữ liệu riêng tư</span>
               </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-100 text-xs font-semibold text-gray-400">
+                Phát triển bởi Bảo Duy
+              </div>
             </div>
           )}
         </main>
+
+        {/* Global App Footer */}
+        <footer className="mt-auto py-5 text-center text-xs text-gray-400 font-medium select-none">
+          Phát triển bởi Bảo Duy
+        </footer>
       </div>
+
+      {/* App Update Prompt Modal */}
+      <UpdatePromptModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        onUpdate={handleApplyUpdate}
+      />
 
       {/* FULLSCREEN ALARM SCREEN (Triggered by scheduled time or boyfriend's buzz) */}
       <AlarmScreenModal

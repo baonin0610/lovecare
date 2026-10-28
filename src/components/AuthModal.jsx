@@ -238,6 +238,9 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
               ? 'Đã có tài khoản? Bấm để đăng nhập'
               : 'Chưa có tài khoản? Bấm để đăng ký tài khoản mới'}
           </button>
+          <div className="mt-3 text-[11px] text-gray-400 font-medium">
+            Phát triển bởi Bảo Duy
+          </div>
         </div>
       </div>
     </div>

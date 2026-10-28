@@ -138,7 +138,7 @@ const defaultData = {
 class Database {
   constructor() {
     this.data = this.load();
-    this.initCloud();
+    this.readyPromise = this.initCloud();
   }
 
   async initCloud() {
@@ -151,7 +151,7 @@ class Database {
           if (cloudData.reminders && cloudData.reminders.length > 0) this.data.reminders = cloudData.reminders;
           if (cloudData.checkins && cloudData.checkins.length > 0) this.data.checkins = cloudData.checkins;
           this.save();
-          console.log('[Database] Cloud sync complete with Supabase 24/7');
+          console.log(`[Database] Cloud sync complete with Supabase: ${this.data.users.length} users, ${this.data.couples.length} couples, ${this.data.checkins.length} checkins restored.`);
         }
       } catch (e) {
         console.warn('[Database] Cloud init failed, running on local storage:', e.message);

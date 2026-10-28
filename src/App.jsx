@@ -82,13 +82,13 @@ export function App() {
         </div>
       )}
 
-      {/* Main Container - optimized for iPhone width & responsive desktop */}
-      <div className="w-full max-w-lg min-h-screen flex flex-col px-4 pt-3 sm:pt-6">
+      {/* Main Container - optimized for iPhone width & responsive desktop with Safe Area */}
+      <div className="w-full max-w-lg min-h-screen flex flex-col px-4 safe-top-header">
         {/* App Top Bar */}
         <header className="flex items-center justify-between py-2 mb-3 border-b border-gray-100 pb-3">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-sm">
               <Droplets className="w-5 h-5 fill-white" />
             </div>
             <div>
@@ -107,10 +107,10 @@ export function App() {
             {/* Install on iPhone button */}
             <button
               onClick={() => setIsGuideOpen(true)}
-              className="px-2.5 py-1.5 text-gray-600 bg-white hover:bg-gray-50 rounded-xl font-medium text-xs flex items-center gap-1.5 transition border border-gray-200"
+              className="px-3 py-2 text-gray-700 bg-white hover:bg-gray-50 rounded-xl font-medium text-xs flex items-center gap-1.5 transition border border-gray-200 shadow-xs min-h-[40px] active:scale-95"
               title="Cài app trên iPhone"
             >
-              <Smartphone className="w-3.5 h-3.5 text-gray-500" />
+              <Smartphone className="w-4 h-4 text-gray-600" />
               <span className="hidden sm:inline">Cài lên iPhone</span>
             </button>
 
@@ -120,18 +120,18 @@ export function App() {
                 {IS_DEV_MODE && (
                   <button
                     onClick={() => quickSwitch(isCaretaker ? 'lover' : 'caretaker')}
-                    className="px-2 py-1.5 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-200 transition text-[11px] font-semibold flex items-center gap-1"
+                    className="px-2.5 py-2 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-200 transition text-[11px] font-semibold flex items-center gap-1 min-h-[40px] active:scale-95"
                     title="[Dev Only] Chuyển vai"
                   >
                     <Repeat className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{isCaretaker ? 'Dev: Sang Em' : 'Dev: Sang Anh'}</span>
+                    <span>{isCaretaker ? 'Dev: Em' : 'Dev: Anh'}</span>
                   </button>
                 )}
 
-                {/* Logout */}
+                {/* Logout button with large touch target */}
                 <button
                   onClick={logout}
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-xl hover:bg-gray-100 transition"
+                  className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-rose-600 rounded-xl bg-gray-100 hover:bg-rose-50 transition active:scale-95 border border-gray-200/80"
                   title="Đăng xuất"
                 >
                   <LogOut className="w-4 h-4" />
@@ -144,7 +144,7 @@ export function App() {
                     setAuthMode('login');
                     setIsAuthOpen(true);
                   }}
-                  className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-xs border border-gray-200"
+                  className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-xs border border-gray-200 shadow-xs min-h-[40px] active:scale-95"
                 >
                   Đăng nhập
                 </button>
@@ -153,7 +153,7 @@ export function App() {
                     setAuthMode('register');
                     setIsAuthOpen(true);
                   }}
-                  className="px-3 py-1.5 bg-gray-900 hover:bg-black text-white font-semibold rounded-xl text-xs"
+                  className="px-3.5 py-2 bg-gray-900 hover:bg-black text-white font-semibold rounded-xl text-xs min-h-[40px] active:scale-95 shadow-xs"
                 >
                   Đăng ký
                 </button>

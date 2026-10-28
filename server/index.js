@@ -128,13 +128,13 @@ app.post('/api/auth/register', (req, res) => {
   }
 
   let couple = null;
-  const userId = `user-${uuidv4()}`;
+  const userId = uuidv4();
 
   if (role === 'lover') {
     // Bạn nữ tự động được cấp mã kết nối riêng (VD: LC-8392)
     const code = 'LC-' + Math.floor(1000 + Math.random() * 9000);
     const newCouple = {
-      id: `couple-${uuidv4()}`,
+      id: uuidv4(),
       code,
       name: `${name} & Bạn trai`,
       caretakerId: null,
@@ -147,7 +147,7 @@ app.post('/api/auth/register', (req, res) => {
     // Mốc nhắc nhở mặc định
     const defaultReminders = [
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Cốc nước buổi sáng',
         type: 'water',
@@ -157,7 +157,7 @@ app.post('/api/auth/register', (req, res) => {
         enabled: true
       },
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Bữa sáng',
         type: 'meal',
@@ -167,7 +167,7 @@ app.post('/api/auth/register', (req, res) => {
         enabled: true
       },
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Cốc nước giữa giờ',
         type: 'water',
@@ -177,7 +177,7 @@ app.post('/api/auth/register', (req, res) => {
         enabled: true
       },
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Bữa trưa',
         type: 'meal',
@@ -187,7 +187,7 @@ app.post('/api/auth/register', (req, res) => {
         enabled: true
       },
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Cốc nước buổi chiều',
         type: 'water',
@@ -197,7 +197,7 @@ app.post('/api/auth/register', (req, res) => {
         enabled: true
       },
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Bữa tối',
         type: 'meal',
@@ -207,7 +207,7 @@ app.post('/api/auth/register', (req, res) => {
         enabled: true
       },
       {
-        id: `rem-${uuidv4()}`,
+        id: uuidv4(),
         coupleId: couple.id,
         title: 'Cốc nước trước khi ngủ',
         type: 'water',
@@ -382,7 +382,7 @@ app.post('/api/reminders', (req, res) => {
   }
 
   const newReminder = {
-    id: `rem-${uuidv4()}`,
+    id: uuidv4(),
     coupleId,
     title,
     type, // 'water' or 'meal'
@@ -461,7 +461,7 @@ app.post('/api/checkins', upload.single('photo'), async (req, res) => {
   const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
 
   const checkinData = {
-    id: `chk-${uuidv4()}`,
+    id: uuidv4(),
     coupleId,
     userId,
     userName: user ? user.name : 'Em Yêu',
@@ -549,7 +549,7 @@ app.post('/api/nudge', (req, res) => {
 
   const user = db.findUserById(userId);
   const nudgeData = {
-    id: `nudge-${uuidv4()}`,
+    id: uuidv4(),
     coupleId,
     senderId: userId,
     senderName: user ? user.name : 'Bạn trai',

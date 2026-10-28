@@ -1,11 +1,20 @@
 // Supabase Integration Layer for 24/7 Persistent Storage & CDN Photos
 // Uses native Node.js fetch (no extra dependencies required)
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
+let rawUrl = (process.env.SUPABASE_URL || '').trim();
+// Automatically clean URL if user pasted with /rest/v1 or trailing slashes
+rawUrl = rawUrl.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+const SUPABASE_URL = rawUrl;
+const SUPABASE_KEY = (process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '').trim();
 
 export const isSupabaseConfigured = () => {
   return Boolean(SUPABASE_URL && SUPABASE_KEY);
+};
+
+const ensureUuid = (id) => {
+  if (!id) return null;
+  const match = String(id).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return match ? match[0] : null;
 };
 
 const getHeaders = (contentType = 'application/json') => ({
@@ -137,7 +146,7 @@ export const supabase = {
   async saveUser(user) {
     if (!isSupabaseConfigured()) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
@@ -147,9 +156,14 @@ export const supabase = {
           name: user.name,
           role: user.role,
           avatar: user.avatar || '',
-          couple_id: user.coupleId || null
+          couple_id: ensureUuid(user.coupleId)
         })
       });
+      if (!res.ok) {
+        console.warn('[Supabase DB] saveUser failed:', await res.text());
+      } else {
+        console.log('[Supabase DB] saveUser success for:', user.username);
+      }
     } catch (e) {
       console.warn('[Supabase DB] saveUser error:', e.message);
     }
@@ -159,7 +173,7 @@ export const supabase = {
     if (!isSupabaseConfigured()) return;
     try {
       const payload = {};
-      if (updates.coupleId !== undefined) payload.couple_id = updates.coupleId;
+      if (updates.coupleId !== undefined) payload.couple_id = ensureUuid(updates.coupleId);
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.avatar !== undefined) payload.avatar = updates.avatar;
 
@@ -176,11 +190,12 @@ export const supabase = {
   async saveCouple(couple) {
     if (!isSupabaseConfigured()) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/couples`, {
+      const coupleUuid = ensureUuid(couple.id) || couple.id;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/couples`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          id: couple.id,
+          id: coupleUuid,
           code: couple.code,
           name: couple.name,
           caretaker_id: couple.caretakerId || null,
@@ -188,6 +203,11 @@ export const supabase = {
           target_water_ml: couple.targetWaterMl || 2000
         })
       });
+      if (!res.ok) {
+        console.warn('[Supabase DB] saveCouple failed:', await res.text());
+      } else {
+        console.log('[Supabase DB] saveCouple success for:', couple.code);
+      }
     } catch (e) {
       console.warn('[Supabase DB] saveCouple error:', e.message);
     }
@@ -202,7 +222,8 @@ export const supabase = {
       if (updates.targetWaterMl !== undefined) payload.target_water_ml = updates.targetWaterMl;
       if (updates.name !== undefined) payload.name = updates.name;
 
-      await fetch(`${SUPABASE_URL}/rest/v1/couples?id=eq.${id}`, {
+      const coupleUuid = ensureUuid(id) || id;
+      await fetch(`${SUPABASE_URL}/rest/v1/couples?id=eq.${coupleUuid}`, {
         method: 'PATCH',
         headers: getHeaders(),
         body: JSON.stringify(payload)
@@ -215,12 +236,14 @@ export const supabase = {
   async saveReminder(rem) {
     if (!isSupabaseConfigured()) return;
     try {
+      const remUuid = ensureUuid(rem.id) || rem.id;
+      const coupleUuid = ensureUuid(rem.coupleId) || rem.coupleId;
       await fetch(`${SUPABASE_URL}/rest/v1/reminders`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          id: rem.id,
-          couple_id: rem.coupleId,
+          id: remUuid,
+          couple_id: coupleUuid,
           title: rem.title,
           type: rem.type,
           time: rem.time,
@@ -245,7 +268,8 @@ export const supabase = {
       if (updates.message !== undefined) payload.message = updates.message;
       if (updates.waterAmountMl !== undefined) payload.water_amount_ml = updates.waterAmountMl;
 
-      await fetch(`${SUPABASE_URL}/rest/v1/reminders?id=eq.${id}`, {
+      const remUuid = ensureUuid(id) || id;
+      await fetch(`${SUPABASE_URL}/rest/v1/reminders?id=eq.${remUuid}`, {
         method: 'PATCH',
         headers: getHeaders(),
         body: JSON.stringify(payload)
@@ -258,7 +282,8 @@ export const supabase = {
   async deleteReminder(id) {
     if (!isSupabaseConfigured()) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/reminders?id=eq.${id}`, {
+      const remUuid = ensureUuid(id) || id;
+      await fetch(`${SUPABASE_URL}/rest/v1/reminders?id=eq.${remUuid}`, {
         method: 'DELETE',
         headers: getHeaders()
       });
@@ -270,15 +295,19 @@ export const supabase = {
   async saveCheckin(chk) {
     if (!isSupabaseConfigured()) return;
     try {
+      const chkUuid = ensureUuid(chk.id) || chk.id;
+      const coupleUuid = ensureUuid(chk.coupleId) || chk.coupleId;
+      const remUuid = ensureUuid(chk.reminderId);
+
       await fetch(`${SUPABASE_URL}/rest/v1/checkins`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          id: chk.id,
-          couple_id: chk.coupleId,
+          id: chkUuid,
+          couple_id: coupleUuid,
           user_id: chk.userId,
           user_name: chk.userName,
-          reminder_id: chk.reminderId || null,
+          reminder_id: remUuid,
           type: chk.type,
           title: chk.title,
           water_amount_ml: chk.waterAmountMl || null,
@@ -298,7 +327,8 @@ export const supabase = {
   async deleteCheckin(id) {
     if (!isSupabaseConfigured()) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/checkins?id=eq.${id}`, {
+      const chkUuid = ensureUuid(id) || id;
+      await fetch(`${SUPABASE_URL}/rest/v1/checkins?id=eq.${chkUuid}`, {
         method: 'DELETE',
         headers: getHeaders()
       });
@@ -310,7 +340,8 @@ export const supabase = {
   async updateCheckinReactions(checkinId, reactions) {
     if (!isSupabaseConfigured()) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/checkins?id=eq.${checkinId}`, {
+      const chkUuid = ensureUuid(checkinId) || checkinId;
+      await fetch(`${SUPABASE_URL}/rest/v1/checkins?id=eq.${chkUuid}`, {
         method: 'PATCH',
         headers: getHeaders(),
         body: JSON.stringify({ reactions })

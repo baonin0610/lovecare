@@ -24,11 +24,16 @@ import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
 
 export const CaretakerView = () => {
-  const { user, couple, showToast } = useAuth();
+  const { user, couple, showToast, login } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Couple pairing by code from girlfriend
+  const [connectCodeInput, setConnectCodeInput] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState('');
 
   // Modals
   const [activeTab, setActiveTab] = useState('setlog'); // 'setlog', 'feed', 'schedule'
@@ -156,12 +161,83 @@ export const CaretakerView = () => {
     await loadData();
   };
 
+  const isConnected = !!(couple && couple.loverId);
+
+  const handleConnectGirlfriend = async (e) => {
+    e.preventDefault();
+    if (!connectCodeInput.trim()) return;
+    setConnecting(true);
+    setConnectError('');
+
+    try {
+      const res = await fetch('/api/couple/connect-by-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id
+        },
+        body: JSON.stringify({ code: connectCodeInput.trim() })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Mã kết nối không hợp lệ');
+      }
+
+      login(data.user, data.couple);
+      showToast(`Đã kết nối với bạn gái tên: ${data.loverName || 'Bạn gái'}`);
+      sounds.playSuccess();
+      setConnectCodeInput('');
+      await loadData();
+    } catch (err) {
+      setConnectError(err.message);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   const waterToday = stats?.today?.waterMl || 0;
   const currentTarget = stats?.today?.targetWaterMl || targetWater;
   const waterPercent = Math.min(100, Math.round((waterToday / currentTarget) * 100));
 
   return (
     <div className="pb-24">
+      {/* If Not Connected: Enter Girlfriend's Code Card */}
+      {!isConnected && (
+        <div className="bg-gradient-to-br from-rose-50 via-white to-pink-50 rounded-3xl p-5 border-2 border-rose-400 shadow-md mb-5">
+          <div className="flex items-center gap-2 text-rose-600 font-bold text-sm mb-1.5">
+            <Heart className="w-4 h-4 fill-rose-500" />
+            <span>Kết nối với bạn gái</span>
+          </div>
+          <p className="text-xs text-gray-600 mb-3.5 leading-relaxed">
+            Bạn gái sẽ có một mã riêng (dạng <span className="font-mono font-bold text-gray-900 bg-white px-1.5 py-0.5 rounded border border-gray-200">LC-XXXX</span>). Hãy nhập mã để bắt đầu quản lý và nhắc nhở:
+          </p>
+
+          <form onSubmit={handleConnectGirlfriend} className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="VD: LC-8392"
+                value={connectCodeInput}
+                onChange={(e) => setConnectCodeInput(e.target.value.toUpperCase())}
+                className="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-2xl font-mono font-bold text-center tracking-widest text-gray-900 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 uppercase text-sm"
+                required
+              />
+              <button
+                type="submit"
+                disabled={connecting}
+                className="px-5 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-bold text-xs rounded-2xl shadow-md shadow-rose-500/25 flex items-center justify-center gap-1.5 active:scale-95 transition shrink-0"
+              >
+                {connecting ? 'Đang kết nối...' : 'Kết nối ngay'}
+              </button>
+            </div>
+            {connectError && (
+              <p className="text-xs text-rose-600 font-semibold">{connectError}</p>
+            )}
+          </form>
+        </div>
+      )}
+
       {/* Overview Card - Minimal Dark Theme */}
       <div className="rounded-3xl bg-gray-900 text-white p-6 shadow-xl mb-5">
         <div className="flex items-center justify-between mb-4">

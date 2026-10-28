@@ -93,10 +93,14 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('lovecare_couple', JSON.stringify(updatedCouple));
     });
 
-    s.on('couple_connected', ({ couple: updatedCouple, caretakerName }) => {
+    s.on('couple_connected', ({ couple: updatedCouple, caretakerName, loverName }) => {
       setCouple(updatedCouple);
       localStorage.setItem('lovecare_couple', JSON.stringify(updatedCouple));
-      showToast(`${caretakerName || 'Bạn trai'} đã kết nối thành công!`);
+      if (user?.role === 'lover') {
+        showToast(`Đã kết nối với bạn trai tên: ${caretakerName || 'Bạn trai'}`);
+      } else {
+        showToast(`Đã kết nối với bạn gái tên: ${loverName || 'Bạn gái'}`);
+      }
       sounds.playSuccess();
     });
 

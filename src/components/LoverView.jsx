@@ -125,6 +125,34 @@ export const LoverView = () => {
 
   return (
     <div className="pb-24">
+      {/* If Not Connected: Show Girlfriend's Code to Send to Boyfriend */}
+      {!couple?.caretakerId && couple?.code && (
+        <div className="bg-gradient-to-r from-rose-50 via-white to-pink-50 rounded-3xl p-5 border-2 border-rose-300 shadow-md mb-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <span className="text-[11px] font-bold text-rose-600 block uppercase tracking-wider mb-1">
+                Mã kết nối riêng của bạn
+              </span>
+              <span className="text-2xl font-mono font-black text-gray-900 tracking-wider">
+                {couple.code}
+              </span>
+              <p className="text-xs text-gray-500 mt-1">
+                Gửi mã này cho bạn trai để 2 bạn kết nối với nhau nhé
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(couple.code);
+                showToast(`Đã sao chép mã kết nối: ${couple.code}`);
+              }}
+              className="px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl text-xs font-bold shadow-md shadow-rose-500/25 active:scale-95 transition shrink-0"
+            >
+              Sao chép mã
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Overview Card - Minimalist Apple Health Style */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-5">
         <div className="flex items-center justify-between mb-4">

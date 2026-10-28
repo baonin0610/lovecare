@@ -225,11 +225,18 @@ app.post('/api/auth/register', (req, res) => {
       if (!couple) {
         return res.status(404).json({ error: 'Mã kết nối không hợp lệ. Vui lòng kiểm tra lại mã bạn gái đã gửi.' });
       }
+      const loverUser = couple.loverId ? db.findUserById(couple.loverId) : null;
+      const loverName = loverUser ? loverUser.name : 'Bạn gái';
+
       couple.caretakerId = userId;
       couple.name = `${couple.name.replace(' & Bạn trai', '')} & ${name}`;
       db.updateCouple(couple.id, couple);
 
-      io.to(`couple:${couple.id}`).emit('couple_connected', { couple, caretakerName: name });
+      io.to(`couple:${couple.id}`).emit('couple_connected', {
+        couple,
+        caretakerName: name,
+        loverName
+      });
     }
   }
 
@@ -244,9 +251,12 @@ app.post('/api/auth/register', (req, res) => {
     createdAt: new Date().toISOString()
   });
 
+  const loverUser = couple?.loverId ? db.findUserById(couple.loverId) : null;
+
   res.json({
     user: newUser,
-    couple
+    couple,
+    loverName: loverUser ? loverUser.name : null
   });
 });
 
@@ -266,6 +276,9 @@ app.post('/api/couple/connect-by-code', (req, res) => {
     return res.status(404).json({ error: 'Không tìm thấy phòng với mã này. Hãy kiểm tra lại mã bạn gái gửi nhé!' });
   }
 
+  const loverUser = couple.loverId ? db.findUserById(couple.loverId) : null;
+  const loverName = loverUser ? loverUser.name : 'Bạn gái';
+
   couple.caretakerId = user.id;
   user.coupleId = couple.id;
   db.updateCouple(couple.id, couple);
@@ -273,13 +286,15 @@ app.post('/api/couple/connect-by-code', (req, res) => {
 
   io.to(`couple:${couple.id}`).emit('couple_connected', {
     couple,
-    caretakerName: user.name
+    caretakerName: user.name,
+    loverName
   });
 
   res.json({
     success: true,
     user,
-    couple
+    couple,
+    loverName
   });
 });
 

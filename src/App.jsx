@@ -181,9 +181,7 @@ export function App() {
         {/* Main Content Area */}
         <main className="flex-1">
           {user ? (
-            !isCoupleConnected ? (
-              <CoupleConnectView />
-            ) : isCaretaker ? (
+            isCaretaker ? (
               <CaretakerView />
             ) : (
               <LoverView />

@@ -20,6 +20,8 @@ import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { alarm } from '../services/alarm';
+import { getLocalTodayString } from '../services/date';
 
 export const LoverView = () => {
   const { user, couple, socket, showToast } = useAuth();
@@ -34,6 +36,7 @@ export const LoverView = () => {
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [activeTab, setActiveTab] = useState('tasks'); // 'tasks', 'setlog', 'album'
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [notifiedSlots, setNotifiedSlots] = useState({});
 
   // Keep track of current time every 5 seconds for glowing active time slot
   useEffect(() => {
@@ -208,9 +211,51 @@ export const LoverView = () => {
   };
 
   const getReminderCheckin = (reminder) => {
-    const today = new Date().toISOString().split('T')[0];
-    return checkins.find(c => c.reminderId === reminder.id && c.date === today);
+    const today = getLocalTodayString();
+    // 1. Direct match by reminderId on today
+    const direct = checkins.find(c => c.reminderId === reminder.id && c.date === today);
+    if (direct) return direct;
+
+    // 2. Proximity match by time (within 45 mins) and type
+    if (reminder.time) {
+      const [rH, rM] = reminder.time.split(':').map(Number);
+      const rMinutes = rH * 60 + rM;
+
+      return checkins.find((c) => {
+        if (c.date !== today || c.type !== reminder.type) return false;
+        if (!c.time) return false;
+        const [cH, cM] = c.time.split(':').map(Number);
+        const cMinutes = cH * 60 + cM;
+        return Math.abs(cMinutes - rMinutes) <= 45;
+      });
+    }
+    return null;
   };
+
+  // Local backup alarm check: notifies girlfriend on exact minute if uncompleted
+  useEffect(() => {
+    if (!reminders || reminders.length === 0) return;
+    const today = getLocalTodayString();
+    const currentSlotKey = `${today}_${currentTimeFormatted}`;
+
+    if (notifiedSlots[currentSlotKey]) return;
+
+    for (const rem of reminders) {
+      if (rem.enabled && rem.time === currentTimeFormatted) {
+        const completed = getReminderCheckin(rem);
+        if (!completed) {
+          setNotifiedSlots((prev) => ({ ...prev, [currentSlotKey]: true }));
+          const notifTitle = `⏰ Đến giờ: ${rem.title} (${rem.time})`;
+          const notifBody = rem.type === 'water'
+            ? `💧 Uống ngay ${rem.waterAmountMl || 250}ml nước và chụp ảnh xác thực cho bạn trai nhé!`
+            : `🍱 Đến giờ ăn uống rồi! Hãy ăn uống đầy đủ và chụp ảnh bữa ăn gửi bạn trai nhé! ❤️`;
+
+          alarm.sendPhoneNotification(notifTitle, notifBody, `alarm-${rem.id}-${currentTimeFormatted}`);
+          break;
+        }
+      }
+    }
+  }, [currentTimeFormatted, reminders, checkins, notifiedSlots]);
 
   const waterToday = stats?.today?.waterMl || 0;
   const targetWater = stats?.today?.targetWaterMl || 2000;

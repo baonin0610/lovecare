@@ -26,36 +26,51 @@ class AlarmService {
   }
 
   // Send native phone notification to Lock Screen / Notification Center
-  sendPhoneNotification(title, body, tag = 'alarm') {
-    if (!('Notification' in window) || Notification.permission !== 'granted') {
-      return;
+  async sendPhoneNotification(title, body, tag = 'alarm') {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return false;
+    }
+    if (Notification.permission !== 'granted') {
+      console.warn('[Alarm] Notification permission is not granted:', Notification.permission);
+      return false;
     }
 
+    const options = {
+      body: body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: tag || `alarm-${Date.now()}`,
+      vibrate: [500, 200, 500, 200, 500, 200, 1000],
+      requireInteraction: true, // Stays on screen until dismissed or acted upon
+      renotify: true,
+      silent: false,
+      data: { url: '/' }
+    };
+
+    // 1. Try Service Worker showNotification first (Mandatory for iOS 16.4+ PWA & best for mobile)
     try {
-      // If service worker registration is available, show via SW (best for PWA & iOS)
-      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification(title, {
-            body,
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
-            tag,
-            vibrate: [500, 200, 500, 200, 500, 200, 1000],
-            requireInteraction: true, // Stays on screen until user interacts
-            data: { url: '/' }
-          });
-        });
-      } else {
-        new Notification(title, {
-          body,
-          icon: '/icon-192.png',
-          tag,
-          requireInteraction: true
-        });
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && typeof reg.showNotification === 'function') {
+          await reg.showNotification(title, options);
+          return true;
+        }
       }
     } catch (e) {
-      console.warn('Error showing notification', e);
+      console.warn('[Alarm] ServiceWorker showNotification notice:', e);
     }
+
+    // 2. Desktop browser fallback
+    try {
+      if (typeof Notification === 'function') {
+        new Notification(title, options);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[Alarm] Desktop Notification constructor notice:', e);
+    }
+
+    return false;
   }
 
   // Start continuous vibration loop

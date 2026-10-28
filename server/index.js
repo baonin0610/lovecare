@@ -663,6 +663,12 @@ app.post('/api/nudge', (req, res) => {
   db.addNudge(nudgeData);
   io.to(`couple:${coupleId}`).emit('nudge_alert', nudgeData);
 
+  const targetCouple = db.findCoupleById(coupleId);
+  if (targetCouple) {
+    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('nudge_alert', nudgeData);
+    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('nudge_alert', nudgeData);
+  }
+
   res.json({ success: true, nudge: nudgeData });
 });
 
@@ -783,11 +789,20 @@ setInterval(() => {
 
         if (!alreadyDone) {
           console.log(`[Alarm Trigger] Dispatching alarm for couple ${couple.code} at ${vnTimeStr}: ${rem.title}`);
-          io.to(`couple:${couple.id}`).emit('alarm_trigger', {
+          const defaultMsg = rem.type === 'water'
+            ? `💧 Đến giờ uống ${rem.waterAmountMl || 250}ml nước rồi! Vào chụp ảnh xác thực cho bạn trai nhé.`
+            : `🍱 Đến giờ ăn uống rồi! Vào chụp ảnh bữa ăn cho bạn trai xem nhé.`;
+
+          const payload = {
             reminder: rem,
             time: vnTimeStr,
-            message: rem.message || 'Đến giờ uống nước hoặc ăn uống rồi. Chụp ảnh xác nhận ngay!'
-          });
+            message: rem.message || defaultMsg
+          };
+
+          io.to(`couple:${couple.id}`).emit('alarm_trigger', payload);
+          if (couple.loverId) {
+            io.to(`user:${couple.loverId}`).emit('alarm_trigger', payload);
+          }
         }
       }
     });

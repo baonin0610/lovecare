@@ -64,13 +64,27 @@ export const AuthProvider = ({ children }) => {
       joinRooms();
     }
 
-    s.on('alarm_trigger', ({ reminder, message }) => {
+    s.on('alarm_trigger', ({ reminder, message, time }) => {
       // Triggered automatically at exact scheduled times
       if (user?.role === 'lover') {
         setActiveAlarm(reminder);
         alarm.startAlarmSound();
         alarm.startVibrationLoop();
-        alarm.sendPhoneNotification(reminder.title, message || 'Vào app chụp ảnh ngay để tắt rung!');
+
+        const remTime = reminder.time || time;
+        const notifTitle = `⏰ Đến giờ: ${reminder.title} (${remTime})`;
+        let notifBody = reminder.message;
+        if (!notifBody) {
+          if (reminder.type === 'water') {
+            notifBody = `💧 Uống ngay ${reminder.waterAmountMl || 250}ml nước và chụp ảnh xác thực gửi bạn trai nhé!`;
+          } else if (reminder.type === 'meal') {
+            notifBody = `🍱 Đến giờ ăn rồi! Hãy ăn uống đầy đủ và chụp ảnh bữa ăn gửi bạn trai nhé! ❤️`;
+          } else {
+            notifBody = `✨ Đến giờ rồi nè! Hãy hoàn thành và chụp ảnh xác thực cho bạn trai kiểm tra nhé! ❤️`;
+          }
+        }
+
+        alarm.sendPhoneNotification(notifTitle, notifBody, `alarm-${reminder.id}-${remTime}`);
       }
     });
 
@@ -79,7 +93,14 @@ export const AuthProvider = ({ children }) => {
         setActiveNudge(nudge);
         alarm.startVibrationLoop();
         sounds.playNudge();
-        alarm.sendPhoneNotification('Nhắc nhở từ bạn trai', nudge.message || 'Chụp ảnh xác thực ngay!');
+
+        const sender = nudge.senderName || 'Bạn trai';
+        const notifTitle = nudge.reminderTitle 
+          ? `🔔 ${sender} nhắc: ${nudge.reminderTitle}`
+          : `🔔 Nhắc nhở từ ${sender}`;
+        const notifBody = nudge.message || 'Mau chụp ảnh xác thực gửi bạn trai kiểm tra nhé! ❤️';
+
+        alarm.sendPhoneNotification(notifTitle, notifBody, `nudge-${nudge.id}`);
       }
     });
 

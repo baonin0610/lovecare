@@ -91,9 +91,9 @@ export const CaretakerView = () => {
         api.getCheckins(user, couple),
         api.getStats(user, couple)
       ]);
-      setReminders(rems || []);
-      setCheckins(chks || []);
-      setStats(st || null);
+      setReminders(Array.isArray(rems) ? rems : []);
+      setCheckins(Array.isArray(chks) ? chks : []);
+      setStats(st && !st.error ? st : null);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {

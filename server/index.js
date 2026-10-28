@@ -382,7 +382,7 @@ app.put('/api/couple/target', (req, res) => {
 // ==================== REMINDERS ROUTES ====================
 app.get('/api/reminders', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
-  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+  if (!coupleId) return res.json([]);
 
   const reminders = db.getReminders(coupleId);
   res.json(reminders);
@@ -440,7 +440,7 @@ app.delete('/api/reminders/:id', (req, res) => {
 app.get('/api/checkins', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
   const date = req.query.date; // optional YYYY-MM-DD
-  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+  if (!coupleId) return res.json([]);
 
   const checkins = db.getCheckins(coupleId, date);
   res.json(checkins);
@@ -583,7 +583,20 @@ app.post('/api/nudge', (req, res) => {
 // ==================== STATS ROUTE ====================
 app.get('/api/stats', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
-  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+  if (!coupleId) {
+    return res.json({
+      today: {
+        waterMl: 0,
+        targetWaterMl: 2000,
+        waterPercent: 0,
+        waterCount: 0,
+        mealsCount: 0,
+        totalCheckins: 0
+      },
+      currentStreak: 1,
+      past7Days: []
+    });
+  }
 
   const couple = db.findCoupleById(coupleId);
   const targetWater = (couple && couple.targetWaterMl) || 2000;

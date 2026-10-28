@@ -10,13 +10,20 @@ export const getHeaders = (user, couple) => {
 export const api = {
   // Reminders
   async getReminders(user, couple) {
-    const res = await fetch('/api/reminders', {
-      headers: getHeaders(user, couple)
-    });
-    return res.json();
+    if (!couple?.id) return [];
+    try {
+      const res = await fetch('/api/reminders', {
+        headers: getHeaders(user, couple)
+      });
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      return [];
+    }
   },
 
   async createReminder(user, couple, data) {
+    if (!couple?.id) return null;
     const res = await fetch('/api/reminders', {
       method: 'POST',
       headers: getHeaders(user, couple),
@@ -26,6 +33,7 @@ export const api = {
   },
 
   async updateReminder(user, couple, id, data) {
+    if (!couple?.id) return null;
     const res = await fetch(`/api/reminders/${id}`, {
       method: 'PUT',
       headers: getHeaders(user, couple),
@@ -35,6 +43,7 @@ export const api = {
   },
 
   async deleteReminder(user, couple, id) {
+    if (!couple?.id) return null;
     const res = await fetch(`/api/reminders/${id}`, {
       method: 'DELETE',
       headers: getHeaders(user, couple)
@@ -44,11 +53,17 @@ export const api = {
 
   // Checkins
   async getCheckins(user, couple, date) {
-    const url = date ? `/api/checkins?date=${date}` : '/api/checkins';
-    const res = await fetch(url, {
-      headers: getHeaders(user, couple)
-    });
-    return res.json();
+    if (!couple?.id) return [];
+    try {
+      const url = date ? `/api/checkins?date=${date}` : '/api/checkins';
+      const res = await fetch(url, {
+        headers: getHeaders(user, couple)
+      });
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      return [];
+    }
   },
 
   async createCheckin(user, couple, formData) {
@@ -66,6 +81,7 @@ export const api = {
   },
 
   async reactToCheckin(user, couple, id, reaction) {
+    if (!couple?.id) return null;
     const res = await fetch(`/api/checkins/${id}/reaction`, {
       method: 'POST',
       headers: getHeaders(user, couple),
@@ -75,6 +91,7 @@ export const api = {
   },
 
   async deleteCheckin(user, couple, id) {
+    if (!couple?.id) return null;
     const res = await fetch(`/api/checkins/${id}`, {
       method: 'DELETE',
       headers: getHeaders(user, couple)
@@ -84,6 +101,7 @@ export const api = {
 
   // Nudge
   async sendNudge(user, couple, data) {
+    if (!couple?.id) return null;
     const res = await fetch('/api/nudge', {
       method: 'POST',
       headers: getHeaders(user, couple),
@@ -94,10 +112,22 @@ export const api = {
 
   // Stats
   async getStats(user, couple) {
-    const res = await fetch('/api/stats', {
-      headers: getHeaders(user, couple)
-    });
-    return res.json();
+    if (!couple?.id) {
+      return {
+        today: { waterMl: 0, targetWaterMl: 2000, waterPercent: 0, waterCount: 0, mealsCount: 0, totalCheckins: 0 },
+        currentStreak: 1,
+        past7Days: []
+      };
+    }
+    try {
+      const res = await fetch('/api/stats', {
+        headers: getHeaders(user, couple)
+      });
+      const data = await res.json();
+      return data && !data.error ? data : null;
+    } catch (e) {
+      return null;
+    }
   },
 
   // Couple info & settings

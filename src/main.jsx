@@ -19,8 +19,7 @@ class ErrorBoundary extends React.Component {
   }
 
   handleReset = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
@@ -35,38 +34,51 @@ class ErrorBoundary extends React.Component {
           justifyContent: 'center',
           padding: '24px',
           fontFamily: 'system-ui, sans-serif',
-          background: '#FFF5F7',
+          background: '#FAFAFA',
           color: '#1f2937',
           textAlign: 'center'
         }}>
           <div style={{
-            maxWidth: '400px',
+            maxWidth: '380px',
             background: 'white',
             padding: '32px 24px',
             borderRadius: '24px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #fee2e2'
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08)',
+            border: '1px solid #f3f4f6'
           }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>💖</div>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>
-              LoveCare đang cập nhật dữ liệu
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '16px',
+              background: '#FEE2E2',
+              color: '#F43F5E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px auto',
+              fontSize: '22px'
+            }}>
+              ♥
+            </div>
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px', color: '#111827' }}>
+              Đồng bộ dữ liệu phiên bản mới
             </h2>
-            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>
-              Ứng dụng vừa được cập nhật phiên bản mới. Bấm nút bên dưới để đồng bộ và tiếp tục sử dụng ngay nhé!
+            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', lineHeight: '1.5' }}>
+              Giao diện vừa được làm mới. Bấm nút bên dưới để tiếp tục trải nghiệm!
             </p>
             <button
               onClick={this.handleReset}
               style={{
                 width: '100%',
                 padding: '14px 20px',
-                background: 'linear-gradient(to right, #ec4899, #f43f5e)',
+                background: '#F43F5E',
                 color: 'white',
                 border: 'none',
                 borderRadius: '16px',
                 fontWeight: 'bold',
                 fontSize: '14px',
                 cursor: 'pointer',
-                boxShadow: '0 10px 15px -3px rgba(244, 63, 94, 0.3)'
+                boxShadow: '0 8px 16px -2px rgba(244, 63, 94, 0.25)'
               }}
             >
               Làm Mới & Tiếp Tục Dùng

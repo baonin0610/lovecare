@@ -32,6 +32,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     uptime: Math.round(process.uptime()),
+    supabaseConnected: isSupabaseConfigured(),
+    usersCount: (db.data.users || []).length,
     timestamp: new Date().toISOString()
   });
 });
@@ -95,7 +97,13 @@ io.on('connection', (socket) => {
 
 // ==================== AUTH ROUTES ====================
 app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body;
+  const username = (req.body.username || '').trim();
+  const password = (req.body.password || '').trim();
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Vui lòng điền tên đăng nhập và mật khẩu' });
+  }
+
   const user = db.findUserByUsername(username);
   if (!user || user.password !== password) {
     return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không đúng' });

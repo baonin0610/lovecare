@@ -182,7 +182,9 @@ class Database {
 
   // Users
   findUserByUsername(username) {
-    return this.data.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (!username) return null;
+    const clean = username.trim().toLowerCase();
+    return this.data.users.find(u => u.username && u.username.toLowerCase() === clean);
   }
 
   findUserById(id) {
@@ -190,6 +192,7 @@ class Database {
   }
 
   createUser(userData) {
+    userData.username = userData.username.trim().toLowerCase();
     this.data.users.push(userData);
     this.save();
     supabase.saveUser(userData);

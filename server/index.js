@@ -72,13 +72,23 @@ if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
 }
 
-// Simple date helper
+// Vietnam (Asia/Ho_Chi_Minh GMT+7) Time Helpers
 function getTodayString() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
+function getVietnamTimeString(date = new Date()) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
 }
 
 // Socket.io connection logic
@@ -480,7 +490,7 @@ app.post('/api/checkins', upload.single('photo'), async (req, res) => {
 
   const now = new Date();
   const dateStr = getTodayString();
-  const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const timeStr = getVietnamTimeString(now);
 
   const checkinData = {
     id: uuidv4(),
@@ -522,7 +532,7 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
 
   const user = db.findUserById(userId);
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const timeStr = getVietnamTimeString(now);
 
   const reaction = {
     id: `rx-${uuidv4()}`,

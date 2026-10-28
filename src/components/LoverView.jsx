@@ -10,7 +10,10 @@ import {
   BookOpen,
   Image as ImageIcon,
   Flame,
-  UserCheck
+  UserCheck,
+  Heart,
+  MessageCircle,
+  X
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';

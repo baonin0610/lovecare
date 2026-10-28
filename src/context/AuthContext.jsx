@@ -49,11 +49,20 @@ export const AuthProvider = ({ children }) => {
       transports: ['websocket', 'polling']
     });
 
-    s.on('connect', () => {
+    const joinRooms = () => {
       if (couple?.id) {
         s.emit('join_couple', couple.id);
       }
-    });
+      if (user?.id) {
+        s.emit('join_user', user.id);
+      }
+    };
+
+    s.on('connect', joinRooms);
+    s.on('reconnect', joinRooms);
+    if (s.connected) {
+      joinRooms();
+    }
 
     s.on('alarm_trigger', ({ reminder, message }) => {
       // Triggered automatically at exact scheduled times
@@ -83,7 +92,7 @@ export const AuthProvider = ({ children }) => {
 
     s.on('checkin_reaction', ({ reaction, checkin }) => {
       if (reaction.userId !== user?.id) {
-        showToast(`${reaction.userName} đã thả tim ảnh của bạn.`);
+        showToast(`${reaction.userName} vừa phản hồi ảnh: "${reaction.text || '❤️'}".`);
         sounds.playWaterDrop();
       }
     });

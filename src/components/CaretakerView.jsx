@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
 
 export const CaretakerView = () => {
-  const { user, couple, showToast, login } = useAuth();
+  const { user, couple, socket, showToast, login } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
@@ -105,6 +105,84 @@ export const CaretakerView = () => {
     loadData();
   }, [couple?.id]);
 
+  // Real-time Socket Synchronization for Checkins and Reminders without needing to reload page
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewCheckin = (newCheckin) => {
+      setCheckins((prev) => {
+        if (prev.some((c) => c.id === newCheckin.id)) return prev;
+        return [newCheckin, ...prev];
+      });
+      // Refresh stats in background
+      api.getStats(user, couple).then((st) => {
+        if (st && !st.error) setStats(st);
+      }).catch(console.error);
+    };
+
+    const handleReaction = ({ checkinId, reaction, checkin }) => {
+      setCheckins((prev) =>
+        prev.map((c) => {
+          if (c.id === checkinId) {
+            return checkin || {
+              ...c,
+              reactions: [...(c.reactions || []), reaction]
+            };
+          }
+          return c;
+        })
+      );
+      setSelectedCheckin((curr) => {
+        if (curr && curr.id === checkinId) {
+          return checkin || {
+            ...curr,
+            reactions: [...(curr.reactions || []), reaction]
+          };
+        }
+        return curr;
+      });
+    };
+
+    const handleDeleteCheckinEvent = (deletedId) => {
+      setCheckins((prev) => prev.filter((c) => c.id !== deletedId));
+      setSelectedCheckin((curr) => (curr && curr.id === deletedId ? null : curr));
+      api.getStats(user, couple).then((st) => {
+        if (st && !st.error) setStats(st);
+      }).catch(console.error);
+    };
+
+    const handleNewReminder = (newRem) => {
+      setReminders((prev) => {
+        if (prev.some((r) => r.id === newRem.id)) return prev;
+        return [...prev, newRem].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      });
+    };
+
+    const handleUpdateReminder = (updRem) => {
+      setReminders((prev) => prev.map((r) => (r.id === updRem.id ? updRem : r)));
+    };
+
+    const handleDeleteReminderEvent = (delId) => {
+      setReminders((prev) => prev.filter((r) => r.id !== delId));
+    };
+
+    socket.on('new_checkin', handleNewCheckin);
+    socket.on('checkin_reaction', handleReaction);
+    socket.on('checkin_deleted', handleDeleteCheckinEvent);
+    socket.on('reminder_created', handleNewReminder);
+    socket.on('reminder_updated', handleUpdateReminder);
+    socket.on('reminder_deleted', handleDeleteReminderEvent);
+
+    return () => {
+      socket.off('new_checkin', handleNewCheckin);
+      socket.off('checkin_reaction', handleReaction);
+      socket.off('checkin_deleted', handleDeleteCheckinEvent);
+      socket.off('reminder_created', handleNewReminder);
+      socket.off('reminder_updated', handleUpdateReminder);
+      socket.off('reminder_deleted', handleDeleteReminderEvent);
+    };
+  }, [socket, user, couple]);
+
   const handleAddReminder = async (data) => {
     await api.createReminder(user, couple, data);
     showToast('Đã thêm mốc nhắc nhở mới.');
@@ -136,14 +214,19 @@ export const CaretakerView = () => {
   };
 
   const handleReact = async (checkinId, reaction) => {
-    await api.reactToCheckin(user, couple, checkinId, reaction);
-    showToast('Đã gửi lời khen cho bạn gái.');
-    await loadData();
+    const updated = await api.reactToCheckin(user, couple, checkinId, reaction);
+    if (updated && !updated.error) {
+      setCheckins((prev) => prev.map((c) => (c.id === checkinId ? updated : c)));
+      setSelectedCheckin(updated);
+    }
+    return updated;
   };
 
   const handleDeleteCheckin = async (checkinId) => {
     await api.deleteCheckin(user, couple, checkinId);
     showToast('Đã xóa lượt check-in.');
+    setCheckins((prev) => prev.filter((c) => c.id !== checkinId));
+    setSelectedCheckin(null);
     await loadData();
   };
 
@@ -408,16 +491,29 @@ export const CaretakerView = () => {
                       <p className="text-[11px] text-gray-500 truncate mt-0.5">"{checkin.note}"</p>
                     )}
 
-                    {/* Reaction count */}
+                    {/* Reaction count & Locket latest preview */}
                     <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-rose-600 font-semibold">
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-3.5 h-3.5 fill-rose-500" />
-                        {checkin.reactions && checkin.reactions.length > 0
-                          ? `${checkin.reactions.length} phản hồi`
-                          : 'Thả tim'}
+                      <span className="flex items-center gap-1 truncate max-w-[75%]">
+                        <Heart className="w-3.5 h-3.5 fill-rose-500 shrink-0" />
+                        <span className="truncate">
+                          {checkin.reactions && checkin.reactions.length > 0
+                            ? `${checkin.reactions.length} phản hồi`
+                            : 'Phản hồi Locket'}
+                        </span>
                       </span>
-                      <span className="text-gray-400 group-hover:text-gray-700">Xem &gt;</span>
+                      <span className="text-gray-400 group-hover:text-gray-700 shrink-0">Xem &gt;</span>
                     </div>
+
+                    {checkin.reactions && checkin.reactions.length > 0 && (
+                      <div className="mt-1.5 px-2 py-1 rounded-lg bg-gray-50 border border-gray-100 text-[10px] text-gray-600 truncate flex items-center gap-1">
+                        <span className="font-semibold text-gray-800 shrink-0">
+                          {checkin.reactions[checkin.reactions.length - 1].userName}:
+                        </span>
+                        <span className="truncate">
+                          {checkin.reactions[checkin.reactions.length - 1].text}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

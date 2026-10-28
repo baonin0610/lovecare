@@ -399,11 +399,18 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
                             <p className="text-[11px] text-gray-400 mt-0.5">Ảnh xác thực thời gian thực</p>
                           )}
 
-                          {/* Reaction badge */}
+                          {/* Reaction badge & Locket chat preview */}
                           {checkin.reactions && checkin.reactions.length > 0 && (
-                            <div className="mt-2 flex items-center gap-1.5 text-xs text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded-xl w-fit">
-                              <span>{checkin.reactions[0].emoji}</span>
-                              <span className="truncate">{checkin.reactions[0].text || 'Yêu em!'}</span>
+                            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-600 font-bold bg-rose-50 border border-rose-200/60 px-2.5 py-1 rounded-xl w-fit max-w-full">
+                              <Heart className="w-3 h-3 fill-rose-500 shrink-0" />
+                              <span className="truncate">
+                                {checkin.reactions[checkin.reactions.length - 1].userName}: {checkin.reactions[checkin.reactions.length - 1].text}
+                              </span>
+                              {checkin.reactions.length > 1 && (
+                                <span className="text-[10px] text-rose-400 font-normal shrink-0">
+                                  ({checkin.reactions.length})
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>

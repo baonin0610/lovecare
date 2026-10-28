@@ -86,8 +86,15 @@ io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
 
   socket.on('join_couple', (coupleId) => {
+    if (!coupleId) return;
     socket.join(`couple:${coupleId}`);
     console.log(`[Socket] Socket ${socket.id} joined couple:${coupleId}`);
+  });
+
+  socket.on('join_user', (userId) => {
+    if (!userId) return;
+    socket.join(`user:${userId}`);
+    console.log(`[Socket] Socket ${socket.id} joined user:${userId}`);
   });
 
   socket.on('disconnect', () => {
@@ -497,11 +504,16 @@ app.post('/api/checkins', upload.single('photo'), async (req, res) => {
 
   // Broadcast to couple in real-time
   io.to(`couple:${coupleId}`).emit('new_checkin', saved);
+  const targetCouple = db.findCoupleById(coupleId);
+  if (targetCouple) {
+    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('new_checkin', saved);
+    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('new_checkin', saved);
+  }
 
   res.json(saved);
 });
 
-// React to checkin (Like / Heart / Send compliment)
+// React to checkin (Like / Heart / Send compliment / Locket chat)
 app.post('/api/checkins/:id/reaction', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
   const userId = req.headers['x-user-id'];
@@ -509,13 +521,18 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
   const { emoji, text } = req.body;
 
   const user = db.findUserById(userId);
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+
   const reaction = {
     id: `rx-${uuidv4()}`,
     userId,
     userName: user ? user.name : 'Người thương',
+    role: user?.role || 'caretaker',
     emoji: emoji || '❤️',
     text: text || '',
-    createdAt: new Date().toISOString()
+    time: timeStr,
+    createdAt: now.toISOString()
   };
 
   const updatedCheckin = db.addReactionToCheckin(id, reaction);
@@ -528,6 +545,11 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
     reaction,
     checkin: updatedCheckin
   });
+  const targetCouple = db.findCoupleById(coupleId);
+  if (targetCouple) {
+    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
+    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
+  }
 
   res.json(updatedCheckin);
 });
@@ -552,6 +574,11 @@ app.delete('/api/checkins/:id', (req, res) => {
   }
 
   io.to(`couple:${coupleId}`).emit('checkin_deleted', id);
+  const targetCouple = db.findCoupleById(coupleId);
+  if (targetCouple) {
+    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('checkin_deleted', id);
+    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('checkin_deleted', id);
+  }
   res.json({ success: true, id });
 });
 

@@ -13,7 +13,10 @@ import {
   UserCheck,
   Heart,
   MessageCircle,
-  X
+  X,
+  Sunrise,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
@@ -21,7 +24,7 @@ import { DailySetlogView } from './DailySetlogView';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
-import { getLocalTodayString } from '../services/date';
+import { getLocalTodayString, groupRemindersBySession } from '../services/date';
 
 export const LoverView = () => {
   const { user, couple, socket, showToast } = useAuth();
@@ -261,6 +264,11 @@ export const LoverView = () => {
   const targetWater = stats?.today?.targetWaterMl || 2000;
   const waterPercent = Math.min(100, Math.round((waterToday / targetWater) * 100));
 
+  // Group reminders into SÁNG - CHIỀU - TỐI in chronological order
+  const scheduleSections = useMemo(() => {
+    return groupRemindersBySession(reminders, getReminderCheckin);
+  }, [reminders, checkins]);
+
   return (
     <div className="pb-24">
       {/* If Not Connected: Show Girlfriend's Code to Send to Boyfriend */}
@@ -381,9 +389,9 @@ export const LoverView = () => {
         </button>
       </div>
 
-      {/* TAB 1: Tasks Today */}
+      {/* TAB 1: Tasks Today (Lịch Hôm Nay theo SÁNG - CHIỀU - TỐI) */}
       {activeTab === 'tasks' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Live Realtime Tracker Bar */}
           <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white border border-gray-200/80 shadow-sm text-xs">
             <div className="flex items-center gap-2">
@@ -399,119 +407,177 @@ export const LoverView = () => {
             )}
           </div>
 
-          {reminders.map((reminder) => {
-            const completedCheckin = getReminderCheckin(reminder);
-            const isCompleted = !!completedCheckin;
-            const isWater = reminder.type === 'water';
-            const isCurrentSlot = reminder.id === currentSlotReminderId;
+          {scheduleSections.map((section) => {
+            const isMorning = section.id === 'morning';
+            const isAfternoon = section.id === 'afternoon';
+            const isEvening = section.id === 'evening';
 
             return (
-              <div
-                key={reminder.id}
-                className={`rounded-2xl p-4 transition-all duration-300 relative ${
-                  isCurrentSlot
-                    ? isCompleted
-                      ? 'bg-emerald-50/40 border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-md'
-                      : 'bg-gradient-to-r from-rose-50/60 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl shadow-rose-500/15'
-                    : isCompleted
-                    ? 'bg-gray-50/70 border border-gray-200'
-                    : 'bg-white border border-gray-200 hover:border-gray-300 shadow-sm'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isCompleted
-                          ? 'bg-emerald-500 text-white'
-                          : isCurrentSlot
-                          ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
-                          : isWater
-                          ? 'bg-sky-100 text-sky-600'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle2 className="w-5 h-5" />
-                      ) : isWater ? (
-                        <Droplets className="w-5 h-5" />
-                      ) : (
-                        <Utensils className="w-5 h-5" />
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md ${
-                          isCurrentSlot ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {reminder.time}
-                        </span>
-
-                        {isCurrentSlot && (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 tracking-wide ${
-                            isCompleted
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-white animate-ping'}`} />
-                            Khung giờ hiện tại
-                          </span>
-                        )}
-
-                        {isWater && (
-                          <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">
-                            {reminder.waterAmountMl} ml
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className={`font-semibold text-sm mt-1.5 ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                        {reminder.title}
-                      </h4>
-
-                      {reminder.message && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {reminder.message}
-                        </p>
-                      )}
-                    </div>
+              <div key={section.id} className="space-y-2.5">
+                {/* Section Header */}
+                <div
+                  className={`flex items-center justify-between px-3.5 py-2 rounded-2xl border text-xs font-semibold ${
+                    isMorning
+                      ? 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+                      : isAfternoon
+                      ? 'bg-orange-50/70 border-orange-200/80 text-orange-900'
+                      : 'bg-indigo-50/70 border-indigo-200/80 text-indigo-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isMorning && <Sunrise className="w-4 h-4 text-amber-500 shrink-0" />}
+                    {isAfternoon && <Sun className="w-4 h-4 text-orange-500 shrink-0" />}
+                    {isEvening && <Moon className="w-4 h-4 text-indigo-500 shrink-0" />}
+                    <span className="font-bold tracking-wider">{section.shortTitle} • {section.title}</span>
+                    <span className="text-[11px] opacity-70 font-normal">({section.timeRange})</span>
                   </div>
 
-                  {/* Action button */}
-                  <div>
-                    {isCompleted ? (
-                      <button
-                        onClick={() => setSelectedCheckin(completedCheckin)}
-                        className="relative w-11 h-11 rounded-xl overflow-hidden border border-emerald-400 shadow-sm active:scale-95 transition"
-                        title="Xem ảnh đã chụp"
-                      >
-                        <img
-                          src={completedCheckin.photoUrl}
-                          alt="Checkin"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                        </div>
-                      </button>
-                    ) : isCurrentSlot ? (
-                      <button
-                        onClick={() => handleOpenSnap(reminder)}
-                        className="py-2.5 px-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-rose-500/30 flex items-center gap-1.5 active:scale-95 transition"
-                      >
-                        <Camera className="w-3.5 h-3.5" /> Chụp ngay
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleOpenSnap(reminder)}
-                        className="py-2 px-3.5 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition"
-                      >
-                        <Camera className="w-3.5 h-3.5" /> Chụp ảnh
-                      </button>
-                    )}
-                  </div>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                      section.items.length > 0 && section.completedCount === section.items.length
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-white/80 border border-current/20'
+                    }`}
+                  >
+                    {section.completedCount}/{section.items.length} hoàn thành
+                  </span>
                 </div>
+
+                {/* Items in section or clean empty state */}
+                {section.items.length === 0 ? (
+                  <div className="py-2.5 px-4 rounded-xl bg-white/60 border border-dashed border-gray-200 text-center text-xs text-gray-400">
+                    Không có mốc nhắc trong {section.title.toLowerCase()}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {section.items.map((reminder) => {
+                      const completedCheckin = getReminderCheckin(reminder);
+                      const isCompleted = !!completedCheckin;
+                      const isWater = reminder.type === 'water';
+                      const isCurrentSlot = reminder.id === currentSlotReminderId;
+
+                      return (
+                        <div
+                          key={reminder.id}
+                          className={`rounded-2xl p-4 transition-all duration-300 relative ${
+                            isCurrentSlot
+                              ? isCompleted
+                                ? 'bg-emerald-50/40 border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-md'
+                                : 'bg-gradient-to-r from-rose-50/60 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl shadow-rose-500/15'
+                              : isCompleted
+                              ? 'bg-gray-50/70 border border-gray-200'
+                              : 'bg-white border border-gray-200 hover:border-gray-300 shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                  isCompleted
+                                    ? 'bg-emerald-500 text-white'
+                                    : isCurrentSlot
+                                    ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
+                                    : isWater
+                                    ? 'bg-sky-100 text-sky-600'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}
+                              >
+                                {isCompleted ? (
+                                  <CheckCircle2 className="w-5 h-5" />
+                                ) : isWater ? (
+                                  <Droplets className="w-5 h-5" />
+                                ) : (
+                                  <Utensils className="w-5 h-5" />
+                                )}
+                              </div>
+
+                              <div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span
+                                    className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md ${
+                                      isCurrentSlot ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {reminder.time}
+                                  </span>
+
+                                  {isCurrentSlot && (
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 tracking-wide ${
+                                        isCompleted
+                                          ? 'bg-emerald-100 text-emerald-700'
+                                          : 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
+                                      }`}
+                                    >
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full ${
+                                          isCompleted ? 'bg-emerald-500' : 'bg-white animate-ping'
+                                        }`}
+                                      />
+                                      Khung giờ hiện tại
+                                    </span>
+                                  )}
+
+                                  {isWater && (
+                                    <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">
+                                      {reminder.waterAmountMl} ml
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4
+                                  className={`font-semibold text-sm mt-1.5 ${
+                                    isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
+                                  }`}
+                                >
+                                  {reminder.title}
+                                </h4>
+
+                                {reminder.message && (
+                                  <p className="text-xs text-gray-500 mt-0.5">{reminder.message}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action button */}
+                            <div>
+                              {isCompleted ? (
+                                <button
+                                  onClick={() => setSelectedCheckin(completedCheckin)}
+                                  className="relative w-11 h-11 rounded-xl overflow-hidden border border-emerald-400 shadow-sm active:scale-95 transition"
+                                  title="Xem ảnh đã chụp"
+                                >
+                                  <img
+                                    src={completedCheckin.photoUrl}
+                                    alt="Checkin"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                                  </div>
+                                </button>
+                              ) : isCurrentSlot ? (
+                                <button
+                                  onClick={() => handleOpenSnap(reminder)}
+                                  className="py-2.5 px-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-rose-500/30 flex items-center gap-1.5 active:scale-95 transition"
+                                >
+                                  <Camera className="w-3.5 h-3.5" /> Chụp ngay
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenSnap(reminder)}
+                                  className="py-2 px-3.5 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition"
+                                >
+                                  <Camera className="w-3.5 h-3.5" /> Chụp ảnh
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}

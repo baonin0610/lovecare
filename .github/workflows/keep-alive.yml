@@ -1,0 +1,20 @@
+name: 24/7 Keep Awake Ping
+
+on:
+  schedule:
+    # Runs every 10 minutes to prevent free tier servers from sleeping
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Live Server
+        run: |
+          if [ -n "${{ secrets.APP_URL }}" ]; then
+            echo "Pinging ${{ secrets.APP_URL }}/api/ping..."
+            curl -s -f "${{ secrets.APP_URL }}/api/ping" || true
+          else
+            echo "APP_URL secret is not set yet. Set it in GitHub Repo Settings -> Secrets to keep awake!"
+          fi

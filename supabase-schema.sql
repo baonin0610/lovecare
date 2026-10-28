@@ -73,14 +73,44 @@ create table if not exists public.nudges (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- 6. Messages Table (Locket Chat Box)
+create table if not exists public.messages (
+  id text primary key,
+  couple_id text not null,
+  user_id text not null,
+  user_name text not null,
+  role text not null,
+  text text not null,
+  emoji text default '❤️',
+  checkin_id text,
+  checkin_photo_url text,
+  checkin_title text,
+  checkin_time text,
+  checkin_type text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 7. Push Subscriptions Table (iPhone iOS 16.4+ Lock Screen Notifications)
+create table if not exists public.push_subscriptions (
+  id text primary key,
+  user_id text,
+  couple_id text,
+  subscription jsonb not null,
+  user_agent text,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 -- Indices for ultra-fast queries
 create index if not exists idx_checkins_date on public.checkins(couple_id, date);
 create index if not exists idx_reminders_couple on public.reminders(couple_id);
+create index if not exists idx_messages_couple on public.messages(couple_id);
+create index if not exists idx_push_user on public.push_subscriptions(user_id);
 
 -- Enable Realtime for live updates between iPhone & PC
 alter publication supabase_realtime add table public.checkins;
 alter publication supabase_realtime add table public.reminders;
 alter publication supabase_realtime add table public.nudges;
+alter publication supabase_realtime add table public.messages;
 
 -- ========================================================
 -- 6. Storage Bucket & RLS Policies for 'checkins'

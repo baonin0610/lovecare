@@ -77,7 +77,21 @@ export const PwaInstallGuide = ({ isOpen, onClose }) => {
                 Bấm "Thêm" (Add) ở góc trên <CheckCircle className="w-4 h-4 text-rose-600 inline" />
               </p>
               <p className="text-xs text-gray-600 mt-0.5">
-                Icon LoveCare màu hồng xinh xắn sẽ xuất hiện ngay trên màn hình iPhone, bấm vào dùng full-screen như app gốc!
+                Icon LoveCare màu hồng xinh xắn sẽ xuất hiện ngay trên màn hình iPhone của bạn!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200">
+            <div className="w-7 h-7 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+              5
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-950 flex items-center gap-1.5">
+                Mở app từ Màn hình chính & Bật thông báo 🔔
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                <strong>Rất quan trọng:</strong> Mở app từ icon trên Màn hình chính và bấm nút <em>"Bật thông báo"</em>. Khi đó Apple sẽ kích hoạt thông báo ngầm, <strong>dù bạn tắt app hoàn toàn hay khoá màn hình</strong>, iPhone vẫn sẽ reo chuông đúng giờ hẹn!
               </p>
             </div>
           </div>

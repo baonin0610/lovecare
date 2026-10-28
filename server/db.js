@@ -133,7 +133,8 @@ const defaultData = {
   ],
   checkins: [],
   nudges: [],
-  messages: []
+  messages: [],
+  pushSubscriptions: []
 };
 
 class Database {
@@ -370,6 +371,49 @@ class Database {
     this.save();
     supabase.saveMessage(msgData);
     return msgData;
+  }
+
+  // Push Subscriptions for Background & Lock Screen Notifications
+  addPushSubscription(userId, coupleId, subscription, userAgent = '') {
+    if (!this.data.pushSubscriptions) this.data.pushSubscriptions = [];
+    const endpoint = subscription.endpoint;
+    const existingIndex = this.data.pushSubscriptions.findIndex(s => s.subscription?.endpoint === endpoint);
+
+    const subRecord = {
+      id: existingIndex !== -1 ? this.data.pushSubscriptions[existingIndex].id : `sub-${Date.now()}`,
+      userId,
+      coupleId,
+      subscription,
+      userAgent,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (existingIndex !== -1) {
+      this.data.pushSubscriptions[existingIndex] = subRecord;
+    } else {
+      this.data.pushSubscriptions.push(subRecord);
+    }
+    this.save();
+    return subRecord;
+  }
+
+  removePushSubscription(endpoint) {
+    if (!this.data.pushSubscriptions) return;
+    const prevLen = this.data.pushSubscriptions.length;
+    this.data.pushSubscriptions = this.data.pushSubscriptions.filter(s => s.subscription?.endpoint !== endpoint);
+    if (this.data.pushSubscriptions.length !== prevLen) {
+      this.save();
+    }
+  }
+
+  getSubscriptionsForUser(userId) {
+    if (!this.data.pushSubscriptions) return [];
+    return this.data.pushSubscriptions.filter(s => s.userId === userId);
+  }
+
+  getSubscriptionsForCouple(coupleId) {
+    if (!this.data.pushSubscriptions) return [];
+    return this.data.pushSubscriptions.filter(s => s.coupleId === coupleId);
   }
 }
 

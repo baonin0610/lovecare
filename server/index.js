@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './db.js';
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import { VAPID_PUBLIC_KEY, sendPushToUser, sendPushToCouple } from './pushService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -567,6 +568,16 @@ app.post('/api/checkins', upload.single('photo'), async (req, res) => {
   if (targetCouple) {
     if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('new_checkin', saved);
     if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('new_checkin', saved);
+
+    // Push notification to boyfriend even if app is closed or locked on iPhone
+    if (targetCouple.caretakerId && targetCouple.caretakerId !== userId) {
+      sendPushToUser(targetCouple.caretakerId, {
+        title: `📸 Bạn gái vừa gửi ảnh: ${saved.title}`,
+        body: `${saved.userName} vừa hoàn thành lúc ${saved.time}. Chạm để xem ảnh và phản hồi ngay!`,
+        tag: `checkin-${saved.id}`,
+        url: '/'
+      });
+    }
   }
 
   res.json(saved);
@@ -634,6 +645,17 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
     if (targetCouple.loverId) {
       io.to(`user:${targetCouple.loverId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
       io.to(`user:${targetCouple.loverId}`).emit('chat_message', messageData);
+    }
+
+    // Send Web Push notification to partner's lock screen
+    const recipientId = userId === targetCouple.caretakerId ? targetCouple.loverId : targetCouple.caretakerId;
+    if (recipientId) {
+      sendPushToUser(recipientId, {
+        title: `💬 ${reaction.userName} vừa phản hồi ảnh:`,
+        body: reaction.text || reaction.emoji || '❤️',
+        tag: `chat-${reaction.id}`,
+        url: '/'
+      });
     }
   }
 
@@ -709,9 +731,56 @@ app.post('/api/messages', (req, res) => {
   if (targetCouple) {
     if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('chat_message', messageData);
     if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('chat_message', messageData);
+
+    // Send Web Push notification to partner's phone lock screen
+    const recipientId = userId === targetCouple.caretakerId ? targetCouple.loverId : targetCouple.caretakerId;
+    if (recipientId) {
+      sendPushToUser(recipientId, {
+        title: messageData.checkinTitle ? `💬 ${messageData.userName} phản hồi [${messageData.checkinTitle}]:` : `💬 ${messageData.userName} vừa nhắn:`,
+        body: messageData.text,
+        tag: `chat-${messageData.id}`,
+        url: '/'
+      });
+    }
   }
 
   res.json(messageData);
+});
+
+// ==================== WEB PUSH (IOS LOCK SCREEN / BACKGROUND) ROUTES ====================
+app.get('/api/push/vapid-key', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/push/subscribe', (req, res) => {
+  const userId = req.headers['x-user-id'] || req.body.userId;
+  const coupleId = req.headers['x-couple-id'] || req.body.coupleId;
+  const { subscription } = req.body;
+
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: 'PushSubscription is required' });
+  }
+
+  const sub = db.addPushSubscription(userId, coupleId, subscription, req.headers['user-agent'] || '');
+  res.json({ success: true, subscription: sub });
+});
+
+app.post('/api/push/test', async (req, res) => {
+  const userId = req.headers['x-user-id'] || req.body.userId;
+  const { title, body } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  const result = await sendPushToUser(userId, {
+    title: title || '❤️ LoveCare Test Khóa Màn Hình',
+    body: body || 'iPhone của bạn đã được kết nối thông báo ngầm thành công! Dù tắt app hay khoá màn hình vẫn sẽ nhận được chuông báo.',
+    tag: `test-${Date.now()}`,
+    url: '/'
+  });
+
+  res.json({ success: true, result });
 });
 
 app.delete('/api/checkins/:id', (req, res) => {
@@ -768,6 +837,16 @@ app.post('/api/nudge', (req, res) => {
   if (targetCouple) {
     if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('nudge_alert', nudgeData);
     if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('nudge_alert', nudgeData);
+
+    // Send Web Push notification to girlfriend's iPhone lock screen
+    if (targetCouple.loverId) {
+      sendPushToUser(targetCouple.loverId, {
+        title: nudgeData.reminderTitle ? `🔔 ${nudgeData.senderName} nhắc: ${nudgeData.reminderTitle}` : `🔔 Nhắc nhở từ ${nudgeData.senderName}`,
+        body: nudgeData.message,
+        tag: `nudge-${nudgeData.id}`,
+        url: '/'
+      });
+    }
   }
 
   res.json({ success: true, nudge: nudgeData });
@@ -903,6 +982,13 @@ setInterval(() => {
           io.to(`couple:${couple.id}`).emit('alarm_trigger', payload);
           if (couple.loverId) {
             io.to(`user:${couple.loverId}`).emit('alarm_trigger', payload);
+            // Send native lock-screen push notification to girlfriend's iPhone
+            sendPushToUser(couple.loverId, {
+              title: `⏰ Đến giờ: ${rem.title} (${vnTimeStr})`,
+              body: defaultMsg,
+              tag: `alarm-${rem.id}-${vnTimeStr}`,
+              url: '/'
+            });
           }
         }
       }

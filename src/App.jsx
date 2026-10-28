@@ -25,6 +25,12 @@ import {
 import { api } from './services/api';
 import { IS_DEV_MODE } from './config';
 import { alarm } from './services/alarm';
+import {
+  subscribePushNotifications,
+  testPushNotification,
+  isIosDevice,
+  isStandalonePwa
+} from './services/push';
 
 export function App() {
   const {
@@ -158,23 +164,97 @@ export function App() {
     window.location.replace(url.toString());
   };
 
-  // Check notification permission on mount
+  // Web Push status tracking for Lock Screen / Background notifications on iPhone
+  const [pushStatus, setPushStatus] = useState('checking'); // 'subscribed', 'needs_permission', 'needs_pwa', 'unsupported'
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+  const [isTestingPush, setIsTestingPush] = useState(false);
+
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        setNeedsNotifPermission(true);
+    if (!user) return;
+    if (typeof window === 'undefined') return;
+
+    if (!('Notification' in window)) {
+      setPushStatus('unsupported');
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((reg) => {
+          if (reg.pushManager) {
+            reg.pushManager.getSubscription().then((sub) => {
+              if (sub) {
+                setPushStatus('subscribed');
+                // Keep server updated with active subscription
+                fetch('/api/push/subscribe', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': user.id,
+                    'x-couple-id': couple?.id
+                  },
+                  body: JSON.stringify({ subscription: sub })
+                }).catch(() => {});
+              } else {
+                setPushStatus('needs_permission');
+              }
+            }).catch(() => setPushStatus('needs_permission'));
+          } else {
+            setPushStatus(isIosDevice() && !isStandalonePwa() ? 'needs_pwa' : 'unsupported');
+          }
+        }).catch(() => setPushStatus('needs_permission'));
+      }
+    } else {
+      if (isIosDevice() && !isStandalonePwa()) {
+        setPushStatus('needs_pwa');
+      } else {
+        setPushStatus('needs_permission');
       }
     }
-  }, [user]);
+  }, [user, couple?.id]);
 
-  const handleRequestNotification = async () => {
-    const res = await alarm.requestNotificationPermission();
-    if (res === 'granted') {
-      showToast('Đã bật thông báo báo thức trên iPhone thành công.');
-      setNeedsNotifPermission(false);
-    } else {
-      showToast('Thông báo chưa được cấp quyền.');
-      setNeedsNotifPermission(false);
+  const handleRequestPushNotification = async () => {
+    setIsSubscribingPush(true);
+    try {
+      const res = await subscribePushNotifications(user, couple);
+      if (res.success) {
+        setPushStatus('subscribed');
+        showToast('Đã kích hoạt thông báo ngầm iPhone! Dù tắt app hay khoá máy vẫn nhận được chuông.');
+        // Immediate test push to confirm Lock Screen notification works
+        setTimeout(async () => {
+          await testPushNotification(user);
+        }, 1500);
+      } else {
+        if (res.isIos && !res.isStandalone) {
+          setIsGuideOpen(true);
+          showToast('iPhone yêu cầu: Thêm app vào Màn hình chính để nhận thông báo khi tắt app!');
+        } else if (res.reason === 'permission_denied') {
+          showToast('Thông báo bị chặn trong Cài đặt iPhone. Vui lòng bật lại quyền thông báo.');
+        } else {
+          showToast('Chưa thể bật push: ' + (res.reason || 'Vui lòng thử lại'));
+        }
+      }
+    } catch (e) {
+      showToast('Lỗi kích hoạt thông báo: ' + e.message);
+    } finally {
+      setIsSubscribingPush(false);
+    }
+  };
+
+  const handleTestLockScreenPush = async () => {
+    setIsTestingPush(true);
+    showToast('Đang gửi thông báo thử nghiệm tới màn hình iPhone của bạn...');
+    try {
+      const res = await testPushNotification(user);
+      if (res.success) {
+        showToast('Đã gửi thông báo thử nghiệm! Hãy thử khoá màn hình để kiểm tra.');
+      } else {
+        showToast('Chưa thể gửi thông báo thử nghiệm: ' + (res.error || 'Vui lòng thử lại'));
+      }
+    } catch (e) {
+      showToast('Lỗi gửi thử: ' + e.message);
+    } finally {
+      setIsTestingPush(false);
     }
   };
 
@@ -323,18 +403,63 @@ export function App() {
           </div>
         )}
 
-        {/* iPhone Notification Permission Banner */}
-        {needsNotifPermission && user && (
-          <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-rose-600 shrink-0" />
-              <span className="text-rose-900 font-medium">Bật thông báo để iPhone reo chuông đúng giờ</span>
+        {/* Banner 1: If on iPhone but still in Safari browser (Needs Add to Home Screen) */}
+        {pushStatus === 'needs_pwa' && user && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
+            <div className="flex items-start gap-2.5">
+              <Smartphone className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-amber-950 font-bold block">Nhận thông báo khi tắt app iPhone</span>
+                <span className="text-amber-800 text-[11px] block mt-0.5">
+                  Thêm app ra Màn hình chính để iPhone reo chuông đúng giờ kể cả khi khoá máy!
+                </span>
+              </div>
             </div>
             <button
-              onClick={handleRequestNotification}
-              className="px-3 py-1.5 bg-rose-600 text-white rounded-xl font-semibold text-xs shrink-0 active:scale-95 transition"
+              onClick={() => setIsGuideOpen(true)}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap"
             >
-              Bật ngay
+              Cách cài (10s)
+            </button>
+          </div>
+        )}
+
+        {/* Banner 2: Needs Push Notification Permission */}
+        {pushStatus === 'needs_permission' && user && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 flex items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
+            <div className="flex items-start gap-2.5">
+              <Bell className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-rose-950 font-bold block">Bật thông báo chạy ngầm</span>
+                <span className="text-rose-800 text-[11px] block mt-0.5">
+                  Cho phép thông báo để iPhone reo chuông đúng giờ kể cả khi tắt app
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleRequestPushNotification}
+              disabled={isSubscribingPush}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shrink-0 active:scale-95 transition shadow-xs whitespace-nowrap disabled:opacity-50"
+            >
+              {isSubscribingPush ? 'Đang bật...' : 'Bật ngay'}
+            </button>
+          </div>
+        )}
+
+        {/* Banner 3: If already subscribed, provide a small test button if user wants to verify */}
+        {pushStatus === 'subscribed' && user && (
+          <div className="mb-3 px-3 py-1.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between text-[11px] text-emerald-800">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span>Đã bật thông báo ngầm & khoá màn hình</span>
+            </span>
+            <button
+              onClick={handleTestLockScreenPush}
+              disabled={isTestingPush}
+              className="font-bold underline text-emerald-700 hover:text-emerald-950 active:scale-95 transition ml-2"
+              title="Bấm để gửi 1 thông báo thử nghiệm tới iPhone của bạn"
+            >
+              {isTestingPush ? 'Đang gửi...' : 'Thử chuông ngay'}
             </button>
           </div>
         )}

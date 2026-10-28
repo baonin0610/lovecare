@@ -12,9 +12,10 @@ jobs:
     steps:
       - name: Ping Live Server
         run: |
-          if [ -n "${{ secrets.APP_URL }}" ]; then
-            echo "Pinging ${{ secrets.APP_URL }}/api/ping..."
-            curl -s -f "${{ secrets.APP_URL }}/api/ping" || true
-          else
-            echo "APP_URL secret is not set yet. Set it in GitHub Repo Settings -> Secrets to keep awake!"
+          TARGET_URL="${{ secrets.APP_URL }}"
+          if [ -z "$TARGET_URL" ]; then
+            TARGET_URL="https://lovecare-lo5w.onrender.com"
           fi
+          echo "Pinging $TARGET_URL/api/ping..."
+          curl -s -f "$TARGET_URL/api/ping" || true
+          echo "Keep-alive ping sent successfully!"

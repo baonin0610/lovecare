@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { supabase, isSupabaseConfigured } from './supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -137,6 +138,25 @@ const defaultData = {
 class Database {
   constructor() {
     this.data = this.load();
+    this.initCloud();
+  }
+
+  async initCloud() {
+    if (isSupabaseConfigured()) {
+      try {
+        const cloudData = await supabase.loadAll();
+        if (cloudData) {
+          if (cloudData.users && cloudData.users.length > 0) this.data.users = cloudData.users;
+          if (cloudData.couples && cloudData.couples.length > 0) this.data.couples = cloudData.couples;
+          if (cloudData.reminders && cloudData.reminders.length > 0) this.data.reminders = cloudData.reminders;
+          if (cloudData.checkins && cloudData.checkins.length > 0) this.data.checkins = cloudData.checkins;
+          this.save();
+          console.log('[Database] Cloud sync complete with Supabase 24/7');
+        }
+      } catch (e) {
+        console.warn('[Database] Cloud init failed, running on local storage:', e.message);
+      }
+    }
   }
 
   load() {
@@ -172,6 +192,7 @@ class Database {
   createUser(userData) {
     this.data.users.push(userData);
     this.save();
+    supabase.saveUser(userData);
     return userData;
   }
 
@@ -180,6 +201,7 @@ class Database {
     if (idx !== -1) {
       this.data.users[idx] = { ...this.data.users[idx], ...updates };
       this.save();
+      supabase.updateUser(id, updates);
       return this.data.users[idx];
     }
     return null;
@@ -197,6 +219,7 @@ class Database {
   createCouple(coupleData) {
     this.data.couples.push(coupleData);
     this.save();
+    supabase.saveCouple(coupleData);
     return coupleData;
   }
 
@@ -205,6 +228,7 @@ class Database {
     if (idx !== -1) {
       this.data.couples[idx] = { ...this.data.couples[idx], ...updates };
       this.save();
+      supabase.updateCouple(id, updates);
       return this.data.couples[idx];
     }
     return null;
@@ -218,6 +242,7 @@ class Database {
   createReminder(reminderData) {
     this.data.reminders.push(reminderData);
     this.save();
+    supabase.saveReminder(reminderData);
     return reminderData;
   }
 
@@ -226,6 +251,7 @@ class Database {
     if (idx !== -1) {
       this.data.reminders[idx] = { ...this.data.reminders[idx], ...updates };
       this.save();
+      supabase.updateReminder(id, updates);
       return this.data.reminders[idx];
     }
     return null;
@@ -236,6 +262,7 @@ class Database {
     if (idx !== -1) {
       const removed = this.data.reminders.splice(idx, 1)[0];
       this.save();
+      supabase.deleteReminder(id);
       return removed;
     }
     return null;
@@ -255,6 +282,7 @@ class Database {
   addCheckin(checkinData) {
     this.data.checkins.unshift(checkinData);
     this.save();
+    supabase.saveCheckin(checkinData);
     return checkinData;
   }
 
@@ -264,6 +292,7 @@ class Database {
       if (!checkin.reactions) checkin.reactions = [];
       checkin.reactions.push(reaction);
       this.save();
+      supabase.updateCheckinReactions(checkinId, checkin.reactions);
       return checkin;
     }
     return null;
@@ -274,6 +303,7 @@ class Database {
     if (idx !== -1) {
       const removed = this.data.checkins.splice(idx, 1)[0];
       this.save();
+      supabase.deleteCheckin(id);
       return removed;
     }
     return null;

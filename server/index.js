@@ -8,6 +8,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './db.js';
+import { supabase, isSupabaseConfigured } from './supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -422,7 +423,7 @@ app.get('/api/checkins', (req, res) => {
   res.json(checkins);
 });
 
-app.post('/api/checkins', upload.single('photo'), (req, res) => {
+app.post('/api/checkins', upload.single('photo'), async (req, res) => {
   const coupleId = req.headers['x-couple-id'];
   const userId = req.headers['x-user-id'];
   const { reminderId, type, title, note, waterAmountMl, mealCategory } = req.body;
@@ -432,7 +433,21 @@ app.post('/api/checkins', upload.single('photo'), (req, res) => {
   }
 
   const user = db.findUserById(userId);
-  const photoUrl = `/uploads/${req.file.filename}`;
+  let photoUrl = `/uploads/${req.file.filename}`;
+
+  // If Supabase Storage is configured, upload to cloud CDN so photos never expire
+  if (isSupabaseConfigured() && req.file.path) {
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const cloudUrl = await supabase.uploadPhoto(req.file.filename, fileBuffer, req.file.mimetype);
+      if (cloudUrl) {
+        photoUrl = cloudUrl;
+      }
+    } catch (e) {
+      console.warn('[Checkin Upload] Supabase fallback to local disk:', e.message);
+    }
+  }
+
   const now = new Date();
   const dateStr = getTodayString();
   const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });

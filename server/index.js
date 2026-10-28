@@ -454,6 +454,22 @@ app.put('/api/couple/target', (req, res) => {
   res.json(couple);
 });
 
+app.put('/api/couple/alarm-settings', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const { mandatoryAlarmEnabled, alarmSoundEnabled, vibrationEnabled } = req.body;
+  const couple = db.findCoupleById(coupleId);
+  if (!couple) return res.status(404).json({ error: 'Couple not found' });
+
+  couple.mandatoryAlarmEnabled = mandatoryAlarmEnabled !== undefined ? !!mandatoryAlarmEnabled : true;
+  couple.alarmSoundEnabled = alarmSoundEnabled !== undefined ? !!alarmSoundEnabled : true;
+  couple.vibrationEnabled = vibrationEnabled !== undefined ? !!vibrationEnabled : true;
+
+  db.updateCouple(coupleId, couple);
+  const enriched = enrichCouple(couple);
+  io.to(`couple:${coupleId}`).emit('couple_updated', enriched);
+  res.json(enriched);
+});
+
 // ==================== REMINDERS ROUTES ====================
 app.get('/api/reminders', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
@@ -875,7 +891,7 @@ app.post('/api/nudge', (req, res) => {
         title: nudgeData.reminderTitle ? `🔔 ${nudgeData.senderName} nhắc: ${nudgeData.reminderTitle}` : `🔔 Nhắc nhở từ ${nudgeData.senderName}`,
         body: nudgeData.message,
         tag: `nudge-${nudgeData.id}`,
-        url: '/'
+        url: `/?nudgeId=${nudgeData.id}&urgent=1`
       });
     }
   }
@@ -1004,10 +1020,16 @@ setInterval(() => {
             ? `💧 Đến giờ uống ${rem.waterAmountMl || 250}ml nước rồi! Vào chụp ảnh xác thực cho bạn trai nhé.`
             : `🍱 Đến giờ ăn uống rồi! Vào chụp ảnh bữa ăn cho bạn trai xem nhé.`;
 
+          const isMandatory = rem.mandatory !== false && couple.mandatoryAlarmEnabled !== false;
+          const notifTitle = isMandatory
+            ? `🚨 [BÁO THỨC] ${rem.title} (${vnTimeStr})`
+            : `⏰ Đến giờ: ${rem.title} (${vnTimeStr})`;
+
           const payload = {
             reminder: rem,
             time: vnTimeStr,
-            message: rem.message || defaultMsg
+            message: rem.message || defaultMsg,
+            mandatory: isMandatory
           };
 
           io.to(`couple:${couple.id}`).emit('alarm_trigger', payload);
@@ -1015,10 +1037,11 @@ setInterval(() => {
             io.to(`user:${couple.loverId}`).emit('alarm_trigger', payload);
             // Send native lock-screen push notification to girlfriend's iPhone
             sendPushToUser(couple.loverId, {
-              title: `⏰ Đến giờ: ${rem.title} (${vnTimeStr})`,
+              title: notifTitle,
               body: defaultMsg,
               tag: `alarm-${rem.id}-${vnTimeStr}`,
-              url: '/'
+              url: `/?alarmId=${rem.id}&time=${vnTimeStr}&forceAlarm=1`,
+              alarmId: rem.id
             });
           }
         }

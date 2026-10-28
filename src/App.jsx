@@ -11,6 +11,7 @@ import { CameraCaptureModal } from './components/CameraCaptureModal';
 import { UpdatePromptModal } from './components/UpdatePromptModal';
 import { LocketChatBox } from './components/LocketChatBox';
 import { ReactionModal } from './components/ReactionModal';
+import { AlarmSettingsModal } from './components/AlarmSettingsModal';
 import {
   Heart,
   Droplets,
@@ -19,6 +20,7 @@ import {
   LogOut,
   ShieldCheck,
   Bell,
+  BellRing,
   RefreshCw,
   MessageCircle
 } from 'lucide-react';
@@ -43,6 +45,7 @@ export function App() {
     setActiveNudge,
     activeAlarm,
     dismissAlarm,
+    testAlarm,
     toastMessage,
     showToast,
     isChatBoxOpen,
@@ -57,6 +60,7 @@ export function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isQuickSnapOpen, setIsQuickSnapOpen] = useState(false);
   const [isAlarmSnapOpen, setIsAlarmSnapOpen] = useState(false);
+  const [isAlarmSettingsOpen, setIsAlarmSettingsOpen] = useState(false);
   const [needsNotifPermission, setNeedsNotifPermission] = useState(false);
   const [chatSelectedCheckin, setChatSelectedCheckin] = useState(null);
 
@@ -321,6 +325,15 @@ export function App() {
 
             {user ? (
               <>
+                {/* Alarm Settings Header Button */}
+                <button
+                  onClick={() => setIsAlarmSettingsOpen(true)}
+                  className="w-10 h-10 flex items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition border border-rose-200/80 shadow-xs active:scale-95 shrink-0"
+                  title="Cài đặt Báo thức bắt buộc toàn màn hình"
+                >
+                  <BellRing className="w-4 h-4 text-rose-600" />
+                </button>
+
                 {/* Locket Chat Box Header Button */}
                 <button
                   onClick={() => {
@@ -453,14 +466,22 @@ export function App() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <span>Đã bật thông báo ngầm & khoá màn hình</span>
             </span>
-            <button
-              onClick={handleTestLockScreenPush}
-              disabled={isTestingPush}
-              className="font-bold underline text-emerald-700 hover:text-emerald-950 active:scale-95 transition ml-2"
-              title="Bấm để gửi 1 thông báo thử nghiệm tới iPhone của bạn"
-            >
-              {isTestingPush ? 'Đang gửi...' : 'Thử chuông ngay'}
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setIsAlarmSettingsOpen(true)}
+                className="font-bold underline text-emerald-700 hover:text-emerald-950 active:scale-95 transition"
+              >
+                Cài đặt báo thức
+              </button>
+              <button
+                onClick={handleTestLockScreenPush}
+                disabled={isTestingPush}
+                className="font-bold underline text-emerald-700 hover:text-emerald-950 active:scale-95 transition"
+                title="Bấm để gửi 1 thông báo thử nghiệm tới iPhone của bạn"
+              >
+                {isTestingPush ? 'Đang gửi...' : 'Thử chuông'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -672,6 +693,13 @@ export function App() {
         onReact={async (checkinId, reaction) => {
           await api.reactToCheckin(user, couple, checkinId, reaction);
         }}
+      />
+
+      {/* Global Alarm & Mandatory Notification Settings Modal */}
+      <AlarmSettingsModal
+        isOpen={isAlarmSettingsOpen}
+        onClose={() => setIsAlarmSettingsOpen(false)}
+        onTestAlarm={testAlarm}
       />
     </div>
   );

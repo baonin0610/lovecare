@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Droplets, Utensils, Clock, MessageSquare, Plus } from 'lucide-react';
+import { X, Droplets, Utensils, Clock, MessageSquare, Plus, BellRing } from 'lucide-react';
 
 export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
   const [title, setTitle] = useState('');
@@ -8,8 +8,33 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
   const [waterAmountMl, setWaterAmountMl] = useState(300);
   const [mealCategory, setMealCategory] = useState('lunch');
   const [message, setMessage] = useState('');
+  const [mandatory, setMandatory] = useState(true); // Full-screen mandatory alarm
 
   if (!isOpen) return null;
+
+  const handleTitleChange = (val) => {
+    setTitle(val);
+    const lower = val.toLowerCase();
+    if (
+      lower.includes('ăn') ||
+      lower.includes('cơm') ||
+      lower.includes('bữa') ||
+      lower.includes('trưa') ||
+      lower.includes('tối') ||
+      lower.includes('sáng') ||
+      lower.includes('phở') ||
+      lower.includes('bún')
+    ) {
+      if (type !== 'meal') setType('meal');
+    } else if (
+      lower.includes('nước') ||
+      lower.includes('uống') ||
+      lower.includes('ly') ||
+      lower.includes('cốc')
+    ) {
+      if (type !== 'water') setType('water');
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -24,7 +49,8 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
       time,
       waterAmountMl: type === 'water' ? Number(waterAmountMl) : null,
       mealCategory: type === 'meal' ? mealCategory : null,
-      message: message.trim()
+      message: message.trim(),
+      mandatory: !!mandatory
     });
 
     onClose();
@@ -93,7 +119,7 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => handleTitleChange(e.target.value)}
               placeholder={type === 'water' ? 'VD: Cốc nước giữa buổi chiều' : 'VD: Bữa trưa văn phòng'}
               className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-400"
               required
@@ -166,6 +192,32 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
               placeholder="VD: Đến giờ ăn rồi em, ăn no rồi chụp hình gửi anh nhé!"
               className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
             />
+          </div>
+
+          {/* Mandatory Full-screen Alarm Toggle */}
+          <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200/80 flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+                <BellRing className="w-3.5 h-3.5 text-rose-600" />
+                <span>Báo thức toàn màn hình bắt buộc</span>
+              </div>
+              <p className="text-[11px] text-rose-700/80 mt-0.5 leading-snug">
+                Khi đến giờ hoặc khi chạm thông báo, app tự bung màn hình báo thức đỏ giục nộp ảnh.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMandatory(!mandatory)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                mandatory ? 'bg-rose-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  mandatory ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           <div className="pt-2">

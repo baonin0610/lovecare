@@ -17,22 +17,25 @@ import {
   Sunrise,
   Sun,
   Moon,
-  ChevronDown
+  ChevronDown,
+  BellRing
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
+import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
 import { getLocalTodayString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
 
 export const LoverView = () => {
-  const { user, couple, socket, showToast } = useAuth();
+  const { user, couple, socket, showToast, testAlarm } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Accordion state for schedule sections: only current session expanded by default
   const [expandedSessions, setExpandedSessions] = useState(() => {
@@ -419,18 +422,29 @@ export const LoverView = () => {
       {activeTab === 'tasks' && (
         <div className="space-y-4">
           {/* Live Realtime Tracker Bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white border border-gray-200/80 shadow-sm text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-white border border-gray-200/80 shadow-sm text-xs">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <span className="text-gray-500 font-medium">Bây giờ:</span>
               <span className="font-mono font-bold text-gray-900 text-sm">{currentTimeFormatted}</span>
             </div>
-            {currentSlotReminderId && (
-              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                Đang ở khung giờ cần thực hiện
-              </span>
-            )}
+
+            <div className="flex items-center gap-2">
+              {currentSlotReminderId && (
+                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                  Đang ở khung giờ
+                </span>
+              )}
+
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] border border-gray-200 flex items-center gap-1 active:scale-95 transition"
+                title="Cài đặt thông báo bắt buộc toàn màn hình"
+              >
+                <BellRing className="w-3.5 h-3.5 text-rose-500" /> Báo thức
+              </button>
+            </div>
           </div>
 
           {scheduleSections.map((section) => {
@@ -570,7 +584,7 @@ export const LoverView = () => {
                                     </span>
                                   )}
 
-                                  {isWater && (
+                                  {isWater && reminder.waterAmountMl && !reminder.title.toLowerCase().includes('ăn') && !reminder.title.toLowerCase().includes('bữa') && (
                                     <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">
                                       {reminder.waterAmountMl} ml
                                     </span>
@@ -770,6 +784,13 @@ export const LoverView = () => {
         onClose={() => setSelectedCheckin(null)}
         onReact={handleReact}
         onDelete={handleDeleteCheckin}
+      />
+
+      {/* Alarm & Mandatory Notification Settings Modal */}
+      <AlarmSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onTestAlarm={testAlarm}
       />
     </div>
   );

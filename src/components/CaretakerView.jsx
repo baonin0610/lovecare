@@ -18,22 +18,25 @@ import {
   Sunrise,
   Sun,
   Moon,
-  ChevronDown
+  ChevronDown,
+  BellRing
 } from 'lucide-react';
 import { AddReminderModal } from './AddReminderModal';
 import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
+import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
 import { getLocalTodayString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
 
 export const CaretakerView = () => {
-  const { user, couple, socket, showToast, login } = useAuth();
+  const { user, couple, socket, showToast, login, testAlarm } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Accordion state for schedule sections: only current session expanded by default
   const [expandedSessions, setExpandedSessions] = useState(() => {
@@ -615,12 +618,22 @@ export const CaretakerView = () => {
                 <p className="text-xs text-gray-500">Theo dõi các mốc giờ và gửi nhắc nhở giục bạn gái chụp ảnh</p>
               </div>
 
-              <button
-                onClick={() => setIsAddOpen(true)}
-                className="py-1.5 px-3 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-sm flex items-center gap-1 active:scale-95 transition"
-              >
-                <Plus className="w-3.5 h-3.5" /> Thêm mốc giờ
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-xs border border-gray-200/80 shadow-sm flex items-center gap-1 active:scale-95 transition"
+                  title="Cài đặt thông báo bắt buộc toàn màn hình"
+                >
+                  <BellRing className="w-3.5 h-3.5 text-rose-500" /> Báo thức
+                </button>
+
+                <button
+                  onClick={() => setIsAddOpen(true)}
+                  className="py-1.5 px-3 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-sm flex items-center gap-1 active:scale-95 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Thêm mốc giờ
+                </button>
+              </div>
             </div>
 
             {/* Live Clock Bar for Caretaker */}
@@ -778,7 +791,7 @@ export const CaretakerView = () => {
                                         {rem.title}
                                       </span>
 
-                                      {isWater && (
+                                      {isWater && rem.waterAmountMl && !rem.title.toLowerCase().includes('ăn') && !rem.title.toLowerCase().includes('bữa') && (
                                         <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">
                                           {rem.waterAmountMl}ml
                                         </span>
@@ -965,6 +978,13 @@ export const CaretakerView = () => {
           </div>
         </div>
       )}
+
+      {/* Alarm & Mandatory Notification Settings Modal */}
+      <AlarmSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onTestAlarm={testAlarm}
+      />
     </div>
   );
 };

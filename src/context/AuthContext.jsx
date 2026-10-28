@@ -72,12 +72,23 @@ export const AuthProvider = ({ children }) => {
     s.on('alarm_trigger', ({ reminder, message, time }) => {
       // Triggered automatically at exact scheduled times
       if (user?.role === 'lover') {
-        setActiveAlarm(reminder);
-        alarm.startAlarmSound();
-        alarm.startVibrationLoop();
+        const isMandatory = reminder.mandatory !== false && couple?.mandatoryAlarmEnabled !== false && localStorage.getItem('lovecare_mandatory_alarm') !== 'false';
+
+        if (isMandatory) {
+          setActiveAlarm(reminder);
+          if (localStorage.getItem('lovecare_alarm_sound') !== 'false') {
+            alarm.startAlarmSound();
+          }
+          if (localStorage.getItem('lovecare_vibration') !== 'false') {
+            alarm.startVibrationLoop();
+          }
+        }
 
         const remTime = reminder.time || time;
-        const notifTitle = `⏰ Đến giờ: ${reminder.title} (${remTime})`;
+        const notifTitle = isMandatory
+          ? `🚨 [BÁO THỨC] ${reminder.title} (${remTime})`
+          : `⏰ Đến giờ: ${reminder.title} (${remTime})`;
+
         let notifBody = reminder.message;
         if (!notifBody) {
           if (reminder.type === 'water') {
@@ -197,6 +208,66 @@ export const AuthProvider = ({ children }) => {
     alarm.stopAll();
   };
 
+  const testAlarm = (customRem = null) => {
+    const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const rem = customRem || {
+      id: 'test-alarm',
+      title: 'Thử nghiệm Báo thức toàn màn hình',
+      time: nowStr,
+      message: 'Giao diện báo thức khẩn cấp sẽ tự động bung toàn màn hình khi đến giờ hoặc khi chạm thông báo! Hãy bấm nút chụp ảnh bên dưới để tắt rung.',
+      type: 'water',
+      waterAmountMl: 250
+    };
+    setActiveAlarm(rem);
+    if (localStorage.getItem('lovecare_alarm_sound') !== 'false') {
+      alarm.startAlarmSound();
+    }
+    if (localStorage.getItem('lovecare_vibration') !== 'false') {
+      alarm.startVibrationLoop();
+    }
+  };
+
+  // Listen to Service Worker message and URL query params when tapping notification on iPhone / Android
+  useEffect(() => {
+    // 1. Check URL parameters (from tapping notification banner on lock screen)
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const alarmId = urlParams.get('alarmId');
+      const forceAlarm = urlParams.get('forceAlarm');
+      const timeParam = urlParams.get('time') || '';
+
+      if (alarmId || forceAlarm) {
+        const savedUser = JSON.parse(localStorage.getItem('lovecare_user') || 'null');
+        if (savedUser && savedUser.role === 'lover') {
+          testAlarm({
+            id: alarmId || 'urgent-alarm',
+            title: 'Báo thức đến giờ',
+            time: timeParam || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+            message: 'Đến giờ uống nước hoặc ăn uống rồi! Hãy chụp ảnh xác thực để tắt rung nhé ❤️'
+          });
+        }
+        window.history.replaceState({}, '', '/');
+      }
+    }
+
+    // 2. Listen to SW postMessage (when notification is clicked while app window is open/focused)
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      const handleSwMessage = (e) => {
+        if (e.data && e.data.type === 'TRIGGER_MANDATORY_ALARM') {
+          const payload = e.data.payload || {};
+          testAlarm({
+            id: payload.alarmId || 'sw-alarm',
+            title: payload.title || 'Báo thức đến giờ',
+            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+            message: payload.body || 'Chụp ảnh xác thực để tắt rung nhé!'
+          });
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+      return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -211,6 +282,7 @@ export const AuthProvider = ({ children }) => {
         activeAlarm,
         setActiveAlarm,
         dismissAlarm,
+        testAlarm,
         toastMessage,
         showToast,
         isChatBoxOpen,

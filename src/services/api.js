@@ -147,6 +147,15 @@ export const api = {
     return res.json();
   },
 
+  async updateAlarmSettings(user, couple, settings) {
+    const res = await fetch('/api/couple/alarm-settings', {
+      method: 'PUT',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(settings)
+    });
+    return res.json();
+  },
+
   // Locket Chat Box Messages
   async getMessages(user, couple) {
     if (!couple?.id) return [];

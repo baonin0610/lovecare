@@ -75,25 +75,32 @@ self.addEventListener('push', (event) => {
     renotify: true,
     requireInteraction: true,
     data: {
-      url: '/'
+      url: payload.url || `/?forceAlarm=1&t=${Date.now()}`,
+      alarmId: payload.alarmId,
+      title: payload.title,
+      body: payload.body
     }
   };
 
   event.waitUntil(self.registration.showNotification(payload.title, options));
 });
 
-// Handle notification tap / click -> open or focus the LoveCare PWA
+// Handle notification tap / click -> open or focus the LoveCare PWA and trigger full screen alarm
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const notifData = event.notification.data || {};
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url && 'focus' in client) {
+          client.postMessage({ type: 'TRIGGER_MANDATORY_ALARM', payload: notifData });
           return client.focus();
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/');
+        return self.clients.openWindow(targetUrl);
       }
     })
   );

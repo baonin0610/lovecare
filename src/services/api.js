@@ -145,5 +145,29 @@ export const api = {
       body: JSON.stringify({ targetWaterMl })
     });
     return res.json();
+  },
+
+  // Locket Chat Box Messages
+  async getMessages(user, couple) {
+    if (!couple?.id) return [];
+    try {
+      const res = await fetch('/api/messages', {
+        headers: getHeaders(user, couple)
+      });
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async sendMessage(user, couple, data) {
+    if (!couple?.id) return null;
+    const res = await fetch('/api/messages', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(data)
+    });
+    return res.json();
   }
 };

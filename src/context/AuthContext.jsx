@@ -35,6 +35,11 @@ export const AuthProvider = ({ children }) => {
   const [activeAlarm, setActiveAlarm] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Locket Chat Box state
+  const [isChatBoxOpen, setIsChatBoxOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [lastChatMessage, setLastChatMessage] = useState(null);
+
   // Show floating toast
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -118,6 +123,19 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
+    s.on('chat_message', (msg) => {
+      if (msg.userId !== user?.id) {
+        setLastChatMessage(msg);
+        sounds.playWaterDrop();
+        setUnreadChatCount((prev) => prev + 1);
+        if (msg.checkinTitle) {
+          showToast(`${msg.userName} phản hồi hoạt động [${msg.checkinTitle}]: "${msg.text}"`);
+        } else {
+          showToast(`${msg.userName} vừa nhắn: "${msg.text}"`);
+        }
+      }
+    });
+
     s.on('couple_updated', (updatedCouple) => {
       setCouple(updatedCouple);
       localStorage.setItem('lovecare_couple', JSON.stringify(updatedCouple));
@@ -194,7 +212,12 @@ export const AuthProvider = ({ children }) => {
         setActiveAlarm,
         dismissAlarm,
         toastMessage,
-        showToast
+        showToast,
+        isChatBoxOpen,
+        setIsChatBoxOpen,
+        unreadChatCount,
+        setUnreadChatCount,
+        lastChatMessage
       }}
     >
       {children}

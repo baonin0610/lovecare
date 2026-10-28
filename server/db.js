@@ -132,7 +132,8 @@ const defaultData = {
     }
   ],
   checkins: [],
-  nudges: []
+  nudges: [],
+  messages: []
 };
 
 class Database {
@@ -320,6 +321,55 @@ class Database {
     if (this.data.nudges.length > 50) this.data.nudges.pop();
     this.save();
     return nudgeData;
+  }
+
+  // Messages (Locket Chat Box stream for couple)
+  getMessages(coupleId) {
+    if (!this.data.messages) this.data.messages = [];
+    const directMsgs = this.data.messages.filter(m => m.coupleId === coupleId);
+
+    // Also seamlessly include all replies to checkins that were made in ReactionModal
+    const existingMsgIds = new Set(directMsgs.map(m => m.id));
+    const checkins = this.getCheckins(coupleId);
+    const checkinMsgs = [];
+
+    for (const c of checkins) {
+      if (c.reactions && Array.isArray(c.reactions)) {
+        for (const rx of c.reactions) {
+          const msgId = `msg-${rx.id}`;
+          if (!existingMsgIds.has(rx.id) && !existingMsgIds.has(msgId)) {
+            checkinMsgs.push({
+              id: msgId,
+              coupleId,
+              userId: rx.userId,
+              userName: rx.userName,
+              role: rx.role || 'caretaker',
+              text: rx.text || rx.emoji || '❤️',
+              emoji: rx.emoji || '❤️',
+              checkinId: c.id,
+              checkinPhotoUrl: c.photoUrl,
+              checkinTitle: c.title,
+              checkinTime: c.time,
+              checkinType: c.type,
+              time: rx.time || c.time,
+              createdAt: rx.createdAt || c.createdAt
+            });
+          }
+        }
+      }
+    }
+
+    return [...directMsgs, ...checkinMsgs].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }
+
+  addMessage(msgData) {
+    if (!this.data.messages) this.data.messages = [];
+    this.data.messages.push(msgData);
+    this.save();
+    supabase.saveMessage(msgData);
+    return msgData;
   }
 }
 

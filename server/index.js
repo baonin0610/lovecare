@@ -599,18 +599,119 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
     return res.status(404).json({ error: 'Checkin not found' });
   }
 
+  // Create corresponding chat message so it immediately drops into the Locket Chat Box!
+  const messageData = {
+    id: `msg-${reaction.id}`,
+    coupleId,
+    userId,
+    userName: reaction.userName,
+    role: reaction.role,
+    text: reaction.text || reaction.emoji || '❤️',
+    emoji: reaction.emoji || '❤️',
+    checkinId: updatedCheckin.id,
+    checkinPhotoUrl: updatedCheckin.photoUrl,
+    checkinTitle: updatedCheckin.title,
+    checkinTime: updatedCheckin.time,
+    checkinType: updatedCheckin.type,
+    time: reaction.time,
+    createdAt: reaction.createdAt
+  };
+  db.addMessage(messageData);
+
   io.to(`couple:${coupleId}`).emit('checkin_reaction', {
     checkinId: id,
     reaction,
     checkin: updatedCheckin
   });
+  io.to(`couple:${coupleId}`).emit('chat_message', messageData);
+
   const targetCouple = db.findCoupleById(coupleId);
   if (targetCouple) {
-    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
-    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
+    if (targetCouple.caretakerId) {
+      io.to(`user:${targetCouple.caretakerId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
+      io.to(`user:${targetCouple.caretakerId}`).emit('chat_message', messageData);
+    }
+    if (targetCouple.loverId) {
+      io.to(`user:${targetCouple.loverId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
+      io.to(`user:${targetCouple.loverId}`).emit('chat_message', messageData);
+    }
   }
 
   res.json(updatedCheckin);
+});
+
+// ==================== LOCKET CHAT BOX ROUTES ====================
+app.get('/api/messages', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  if (!coupleId) return res.json([]);
+
+  const messages = db.getMessages(coupleId);
+  res.json(messages);
+});
+
+app.post('/api/messages', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+  const { text, emoji, checkinId, checkinPhotoUrl, checkinTitle, checkinTime, checkinType } = req.body;
+
+  if (!text && !emoji) {
+    return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống' });
+  }
+
+  const user = db.findUserById(userId);
+  const now = new Date();
+  const timeStr = getVietnamTimeString(now);
+
+  const messageData = {
+    id: `msg-${uuidv4()}`,
+    coupleId,
+    userId,
+    userName: user ? user.name : 'Người thương',
+    role: user?.role || 'caretaker',
+    text: text || emoji || '❤️',
+    emoji: emoji || '❤️',
+    checkinId: checkinId || null,
+    checkinPhotoUrl: checkinPhotoUrl || null,
+    checkinTitle: checkinTitle || null,
+    checkinTime: checkinTime || null,
+    checkinType: checkinType || null,
+    time: timeStr,
+    createdAt: now.toISOString()
+  };
+
+  db.addMessage(messageData);
+
+  // If this message replies to a specific checkin, also save as reaction on that checkin!
+  if (checkinId) {
+    const rx = {
+      id: `rx-${uuidv4()}`,
+      userId,
+      userName: messageData.userName,
+      role: messageData.role,
+      emoji: messageData.emoji,
+      text: messageData.text,
+      time: timeStr,
+      createdAt: messageData.createdAt
+    };
+    db.addReactionToCheckin(checkinId, rx);
+    const updatedCheckin = db.data.checkins.find(c => c.id === checkinId);
+    if (updatedCheckin) {
+      io.to(`couple:${coupleId}`).emit('checkin_reaction', {
+        checkinId,
+        reaction: rx,
+        checkin: updatedCheckin
+      });
+    }
+  }
+
+  io.to(`couple:${coupleId}`).emit('chat_message', messageData);
+  const targetCouple = db.findCoupleById(coupleId);
+  if (targetCouple) {
+    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('chat_message', messageData);
+    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('chat_message', messageData);
+  }
+
+  res.json(messageData);
 });
 
 app.delete('/api/checkins/:id', (req, res) => {

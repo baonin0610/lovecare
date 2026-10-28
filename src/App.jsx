@@ -9,6 +9,8 @@ import { AlarmScreenModal } from './components/AlarmScreenModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { CameraCaptureModal } from './components/CameraCaptureModal';
 import { UpdatePromptModal } from './components/UpdatePromptModal';
+import { LocketChatBox } from './components/LocketChatBox';
+import { ReactionModal } from './components/ReactionModal';
 import {
   Heart,
   Droplets,
@@ -17,7 +19,8 @@ import {
   LogOut,
   ShieldCheck,
   Bell,
-  RefreshCw
+  RefreshCw,
+  MessageCircle
 } from 'lucide-react';
 import { api } from './services/api';
 import { IS_DEV_MODE } from './config';
@@ -35,7 +38,12 @@ export function App() {
     activeAlarm,
     dismissAlarm,
     toastMessage,
-    showToast
+    showToast,
+    isChatBoxOpen,
+    setIsChatBoxOpen,
+    unreadChatCount,
+    setUnreadChatCount,
+    lastChatMessage
   } = useAuth();
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -44,6 +52,7 @@ export function App() {
   const [isQuickSnapOpen, setIsQuickSnapOpen] = useState(false);
   const [isAlarmSnapOpen, setIsAlarmSnapOpen] = useState(false);
   const [needsNotifPermission, setNeedsNotifPermission] = useState(false);
+  const [chatSelectedCheckin, setChatSelectedCheckin] = useState(null);
 
   // App version update detection
   const [hasNewUpdate, setHasNewUpdate] = useState(false);
@@ -175,6 +184,18 @@ export function App() {
     alarm.stopAll();
   };
 
+  const handleSelectCheckinFromChat = async (checkinId) => {
+    try {
+      const chks = await api.getCheckins(user, couple);
+      const found = chks.find((c) => c.id === checkinId);
+      if (found) {
+        setChatSelectedCheckin(found);
+      }
+    } catch (e) {
+      console.warn('Failed to load checkin for chat view:', e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-gray-900 flex flex-col items-center">
       {/* Toast Notification */}
@@ -220,6 +241,23 @@ export function App() {
 
             {user ? (
               <>
+                {/* Locket Chat Box Header Button */}
+                <button
+                  onClick={() => {
+                    setIsChatBoxOpen(true);
+                    setUnreadChatCount(0);
+                  }}
+                  className="relative w-10 h-10 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition border border-rose-200/80 shadow-xs active:scale-95 shrink-0"
+                  title="Mở Chat Box Locket"
+                >
+                  <MessageCircle className="w-5 h-5 fill-rose-500/20" />
+                  {unreadChatCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
+                      {unreadChatCount}
+                    </span>
+                  )}
+                </button>
+
                 {/* Switch Role Quick Button - ONLY IN DEV MODE */}
                 {IS_DEV_MODE && (
                   <button
@@ -455,6 +493,60 @@ export function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         initialMode={authMode}
+      />
+
+      {/* Floating Locket Chat Bubble at corner */}
+      {user && (
+        <div className="fixed bottom-6 right-5 z-40 flex items-center gap-2">
+          {/* Preview pill if there was a recent message and chat box is closed */}
+          {lastChatMessage && !isChatBoxOpen && (
+            <button
+              onClick={() => {
+                setIsChatBoxOpen(true);
+                setUnreadChatCount(0);
+              }}
+              className="bg-gray-900/90 hover:bg-black text-white text-xs font-medium px-3.5 py-2 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 max-w-[200px] truncate transition active:scale-95 animate-in fade-in slide-in-from-right-3"
+            >
+              <span className="font-bold text-rose-400 shrink-0">
+                {lastChatMessage.userName}:
+              </span>
+              <span className="truncate">{lastChatMessage.text}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setIsChatBoxOpen(!isChatBoxOpen);
+              setUnreadChatCount(0);
+            }}
+            className="relative w-12 h-12 rounded-full bg-gradient-to-tr from-rose-500 via-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white shadow-xl shadow-rose-500/40 flex items-center justify-center transition-all duration-200 active:scale-90 border-2 border-white ring-4 ring-rose-500/20 group"
+            title={isChatBoxOpen ? 'Đóng chat Locket' : 'Mở Chat Box Locket'}
+          >
+            <MessageCircle className="w-5 h-5 fill-white/20 group-hover:scale-110 transition duration-200" />
+            {unreadChatCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-white text-rose-600 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-rose-500 animate-bounce">
+                {unreadChatCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Dedicated Locket Chat Box Modal */}
+      <LocketChatBox
+        isOpen={isChatBoxOpen}
+        onClose={() => setIsChatBoxOpen(false)}
+        onSelectCheckin={handleSelectCheckinFromChat}
+      />
+
+      {/* Full Photo Modal when tapping on a quoted checkin inside LocketChatBox */}
+      <ReactionModal
+        checkin={chatSelectedCheckin}
+        isOpen={!!chatSelectedCheckin}
+        onClose={() => setChatSelectedCheckin(null)}
+        onReact={async (checkinId, reaction) => {
+          await api.reactToCheckin(user, couple, checkinId, reaction);
+        }}
       />
     </div>
   );

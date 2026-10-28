@@ -360,5 +360,32 @@ export const supabase = {
     } catch (e) {
       console.warn('[Supabase DB] updateReactions error:', e.message);
     }
+  },
+
+  async saveMessage(msg) {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          id: ensureUuid(msg.id),
+          couple_id: ensureUuid(msg.coupleId),
+          user_id: msg.userId,
+          user_name: msg.userName,
+          role: msg.role,
+          text: msg.text,
+          emoji: msg.emoji || '❤️',
+          checkin_id: msg.checkinId ? (ensureUuid(msg.checkinId) || msg.checkinId) : null,
+          checkin_photo_url: msg.checkinPhotoUrl || null,
+          checkin_title: msg.checkinTitle || null,
+          checkin_time: msg.checkinTime || null,
+          checkin_type: msg.checkinType || null,
+          created_at: msg.createdAt
+        })
+      });
+    } catch (e) {
+      // non-fatal if table not yet created in Supabase
+    }
   }
 };

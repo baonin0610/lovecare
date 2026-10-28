@@ -24,7 +24,7 @@ export const ReactionModal = ({
   onDelete,
   initialChatOpen = false
 }) => {
-  const { user } = useAuth();
+  const { user, setIsChatBoxOpen } = useAuth();
   const [isChatOpen, setIsChatOpen] = useState(initialChatOpen);
   const [comment, setComment] = useState('');
   const [reactions, setReactions] = useState([]);
@@ -254,18 +254,33 @@ export const ReactionModal = ({
                 <MessageCircle className="w-3.5 h-3.5 text-rose-500" />
                 <span>Phản hồi ảnh Locket</span>
                 <span className="text-[10px] font-normal text-gray-500">
-                  ({reactions.length} phản hồi)
+                  ({reactions.length})
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsChatOpen(false)}
-                className="text-[11px] font-semibold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-xl flex items-center gap-1 transition active:scale-95"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-                <span>Thu gọn ảnh</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {setIsChatBoxOpen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onClose) onClose();
+                      setIsChatBoxOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl transition active:scale-95"
+                  >
+                    Xem Chat Box &gt;
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsChatOpen(false)}
+                  className="text-[11px] font-semibold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-xl flex items-center gap-1 transition active:scale-95"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span>Thu gọn</span>
+                </button>
+              </div>
             </div>
 
             {/* Chat Messages Conversation Stream */}

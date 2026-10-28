@@ -5,7 +5,13 @@ let rawUrl = (process.env.SUPABASE_URL || '').trim();
 // Automatically clean URL if user pasted with /rest/v1 or trailing slashes
 rawUrl = rawUrl.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
 const SUPABASE_URL = rawUrl;
-const SUPABASE_KEY = (process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '').trim();
+const SUPABASE_KEY = (
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_KEY ||
+  ''
+).trim();
 
 export const isSupabaseConfigured = () => {
   return Boolean(SUPABASE_URL && SUPABASE_KEY);
@@ -33,7 +39,12 @@ export const supabase = {
       const uploadUrl = `${SUPABASE_URL}/storage/v1/object/checkins/${filename}`;
       const res = await fetch(uploadUrl, {
         method: 'POST',
-        headers: getHeaders(mimeType),
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': mimeType || 'image/jpeg',
+          'x-upsert': 'true'
+        },
         body: buffer
       });
 

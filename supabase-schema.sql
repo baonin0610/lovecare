@@ -81,3 +81,29 @@ create index if not exists idx_reminders_couple on public.reminders(couple_id);
 alter publication supabase_realtime add table public.checkins;
 alter publication supabase_realtime add table public.reminders;
 alter publication supabase_realtime add table public.nudges;
+
+-- ========================================================
+-- 6. Storage Bucket & RLS Policies for 'checkins'
+-- ========================================================
+-- Create 'checkins' bucket if not already created
+insert into storage.buckets (id, name, public)
+values ('checkins', 'checkins', true)
+on conflict (id) do update set public = true;
+
+-- Allow public viewing and downloading of checkin photos
+create policy "Allow public viewing of checkins"
+on storage.objects for select
+to public
+using (bucket_id = 'checkins');
+
+-- Allow public uploading of checkin photos
+create policy "Allow public uploading of checkins"
+on storage.objects for insert
+to public
+with check (bucket_id = 'checkins');
+
+-- Allow public deleting of checkin photos
+create policy "Allow public deleting of checkins"
+on storage.objects for delete
+to public
+using (bucket_id = 'checkins');

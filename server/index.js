@@ -499,19 +499,42 @@ app.post('/api/checkins', upload.single('photo'), async (req, res) => {
   }
 
   const user = db.findUserById(userId);
-  let photoUrl = `/uploads/${req.file.filename}`;
+  let photoUrl = null;
+  let fileBuffer = null;
 
-  // If Supabase Storage is configured, upload to cloud CDN so photos never expire
-  if (isSupabaseConfigured() && req.file.path) {
+  if (req.file.path && fs.existsSync(req.file.path)) {
     try {
-      const fileBuffer = fs.readFileSync(req.file.path);
+      fileBuffer = fs.readFileSync(req.file.path);
+    } catch (e) {
+      console.warn('[Checkin Upload] Read file error:', e.message);
+    }
+  }
+
+  // 1. First priority: Upload to Supabase Storage Bucket 'checkins' (Permanent CDN)
+  if (isSupabaseConfigured() && fileBuffer) {
+    try {
       const cloudUrl = await supabase.uploadPhoto(req.file.filename, fileBuffer, req.file.mimetype);
       if (cloudUrl) {
         photoUrl = cloudUrl;
+        console.log(`[Checkin Photo] Saved to Supabase CDN: ${photoUrl}`);
       }
     } catch (e) {
-      console.warn('[Checkin Upload] Supabase fallback to local disk:', e.message);
+      console.warn('[Checkin Upload] Supabase storage upload notice:', e.message);
     }
+  }
+
+  // 2. Second priority: If Supabase Storage CDN is blocked by RLS or bucket permissions,
+  // convert to permanent Base64 Data URI stored directly in Supabase PostgreSQL!
+  // This guarantees photos NEVER get lost when Render redeploys or restarts.
+  if (!photoUrl && fileBuffer) {
+    const base64Str = fileBuffer.toString('base64');
+    photoUrl = `data:${req.file.mimetype || 'image/jpeg'};base64,${base64Str}`;
+    console.log(`[Checkin Photo] Saved as permanent Base64 Data URI (${Math.round(fileBuffer.length / 1024)} KB) in Supabase PostgreSQL`);
+  }
+
+  // 3. Last fallback
+  if (!photoUrl) {
+    photoUrl = `/uploads/${req.file.filename}`;
   }
 
   const now = new Date();

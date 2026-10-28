@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { IS_DEV_MODE } from '../config';
 
 export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
-  const { login, quickSwitch } = useAuth();
+  const { login, quickSwitch, showToast } = useAuth();
   const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [role, setRole] = useState('caretaker'); // 'caretaker' or 'lover'
   const [username, setUsername] = useState('');
@@ -51,6 +51,9 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       }
 
       login(data.user, data.couple);
+      if (data.loverName && data.user.role === 'caretaker') {
+        showToast(`Đã kết nối với bạn gái tên: ${data.loverName}`);
+      }
       onClose();
     } catch (err) {
       setError(err.message);
@@ -91,7 +94,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         {IS_DEV_MODE && (
           <div className="bg-amber-50 rounded-2xl p-3 border border-amber-200 mb-5">
             <p className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-600" /> [Dev Only] Thử nghiệm nhanh 1 chạm:
+              <span>[Dev Only] Thử nghiệm nhanh 1 chạm:</span>
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -102,7 +105,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                 }}
                 className="py-2 px-3 rounded-xl bg-white hover:bg-amber-100/60 text-amber-900 text-xs font-bold border border-amber-300 flex items-center justify-center gap-1.5 transition active:scale-95"
               >
-                <span>👨‍💼</span> Thử Anh Yêu
+                <span>Anh Yêu (Bạn trai)</span>
               </button>
               <button
                 type="button"
@@ -112,7 +115,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                 }}
                 className="py-2 px-3 rounded-xl bg-white hover:bg-amber-100/60 text-amber-900 text-xs font-bold border border-amber-300 flex items-center justify-center gap-1.5 transition active:scale-95"
               >
-                <span>🐰</span> Thử Em Yêu
+                <span>Em Yêu (Bạn gái)</span>
               </button>
             </div>
           </div>

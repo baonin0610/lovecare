@@ -139,6 +139,27 @@ io.on('connection', (socket) => {
   });
 });
 
+// Couple Enrichment Helper
+function enrichCouple(couple) {
+  if (!couple) return null;
+  const loverUser = couple.loverId ? db.findUserById(couple.loverId) : null;
+  const caretakerUser = couple.caretakerId ? db.findUserById(couple.caretakerId) : null;
+
+  const loverName = loverUser?.name || couple.loverName || (couple.name ? couple.name.split('&')[0].trim() : 'Bạn gái');
+  const caretakerName = caretakerUser?.name || couple.caretakerName || (couple.name && couple.name.includes('&') ? couple.name.split('&')[1]?.trim() : 'Bạn trai');
+
+  couple.loverName = loverName;
+  couple.caretakerName = caretakerName;
+
+  if (loverUser && caretakerUser) {
+    couple.name = `${loverName} & ${caretakerName}`;
+  } else if (loverUser) {
+    couple.name = `${loverName} & ${caretakerName}`;
+  }
+
+  return couple;
+}
+
 // ==================== AUTH ROUTES ====================
 app.post('/api/auth/login', (req, res) => {
   const username = (req.body.username || '').trim();
@@ -153,7 +174,7 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không đúng' });
   }
 
-  const couple = user.coupleId ? db.findCoupleById(user.coupleId) : null;
+  const couple = user.coupleId ? enrichCouple(db.findCoupleById(user.coupleId)) : null;
   res.json({
     user,
     couple
@@ -321,15 +342,21 @@ app.post('/api/couple/connect-by-code', (req, res) => {
   }
 
   const loverUser = couple.loverId ? db.findUserById(couple.loverId) : null;
-  const loverName = loverUser ? loverUser.name : 'Bạn gái';
+  const loverName = loverUser ? loverUser.name : (couple.loverName || 'Bạn gái');
 
   couple.caretakerId = user.id;
+  couple.caretakerName = user.name;
+  couple.loverName = loverName;
+  couple.name = `${loverName} & ${user.name}`;
   user.coupleId = couple.id;
+
   db.updateCouple(couple.id, couple);
   db.updateUser(user.id, { coupleId: couple.id });
 
+  const enriched = enrichCouple(couple);
+
   io.to(`couple:${couple.id}`).emit('couple_connected', {
-    couple,
+    couple: enriched,
     caretakerName: user.name,
     loverName
   });
@@ -337,8 +364,9 @@ app.post('/api/couple/connect-by-code', (req, res) => {
   res.json({
     success: true,
     user,
-    couple,
-    loverName
+    couple: enriched,
+    loverName,
+    caretakerName: user.name
   });
 });
 
@@ -349,7 +377,7 @@ app.get('/api/auth/me', (req, res) => {
   const user = db.findUserById(userId);
   if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
 
-  const couple = user.coupleId ? db.findCoupleById(user.coupleId) : null;
+  const couple = user.coupleId ? enrichCouple(db.findCoupleById(user.coupleId)) : null;
   res.json({ user, couple });
 });
 
@@ -366,7 +394,7 @@ app.post('/api/auth/quick-switch', (req, res) => {
   const username = role === 'caretaker' ? 'anhyeu' : 'emyeu';
   const user = db.findUserByUsername(username);
   if (!user) return res.status(404).json({ error: 'Demo user not found' });
-  const couple = db.findCoupleById(user.coupleId);
+  const couple = user.coupleId ? enrichCouple(db.findCoupleById(user.coupleId)) : null;
   res.json({ user, couple });
 });
 
@@ -382,22 +410,25 @@ app.post('/api/couple/join', (req, res) => {
 
   if (user.role === 'caretaker') {
     couple.caretakerId = user.id;
+    couple.caretakerName = user.name;
   } else {
     couple.loverId = user.id;
+    couple.loverName = user.name;
   }
-  db.updateCouple(couple.id, couple);
+  const enriched = enrichCouple(couple);
+  db.updateCouple(couple.id, enriched);
   user.coupleId = couple.id;
   db.updateUser(user.id, { coupleId: couple.id });
 
-  io.to(`couple:${couple.id}`).emit('couple_updated', couple);
-  res.json({ user, couple });
+  io.to(`couple:${couple.id}`).emit('couple_updated', enriched);
+  res.json({ user, couple: enriched });
 });
 
 app.get('/api/couple/info', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
   if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
 
-  const couple = db.findCoupleById(coupleId);
+  const couple = enrichCouple(db.findCoupleById(coupleId));
   if (!couple) return res.status(404).json({ error: 'Không tìm thấy thông tin cặp đôi' });
 
   const caretaker = couple.caretakerId ? db.findUserById(couple.caretakerId) : null;

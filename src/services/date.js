@@ -26,6 +26,51 @@ export const getVietnamTimeString = (date = new Date()) => {
   }
 };
 
+// Returns 'morning' (< 12:00), 'afternoon' (12:00 - 17:59), or 'evening' (>= 18:00)
+export const getCurrentSessionId = () => {
+  try {
+    const vnHourStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: 'numeric',
+      hour12: false
+    }).format(new Date());
+    const h = parseInt(vnHourStr, 10);
+    if (h < 12) return 'morning';
+    if (h < 18) return 'afternoon';
+    return 'evening';
+  } catch (e) {
+    const h = new Date().getHours();
+    if (h < 12) return 'morning';
+    if (h < 18) return 'afternoon';
+    return 'evening';
+  }
+};
+
+// Checks whether a reminder slot has expired (e.g. 30 minutes past scheduled time)
+export const isReminderExpired = (reminderTime, bufferMinutes = 30) => {
+  if (!reminderTime) return false;
+  try {
+    const vnTimeStr = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(new Date());
+    const [nowH, nowM] = vnTimeStr.split(':').map(Number);
+    const nowMinutes = nowH * 60 + nowM;
+
+    const [remH, remM] = reminderTime.split(':').map(Number);
+    const remMinutes = remH * 60 + remM;
+
+    return nowMinutes > remMinutes + bufferMinutes;
+  } catch (e) {
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const [remH, remM] = reminderTime.split(':').map(Number);
+    return nowMinutes > remH * 60 + remM + bufferMinutes;
+  }
+};
+
 // Group reminders into SÁNG - CHIỀU - TỐI in chronological order
 export const groupRemindersBySession = (reminders = [], getCheckinFn = null) => {
   const sorted = [...(reminders || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));

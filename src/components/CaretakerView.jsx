@@ -17,7 +17,8 @@ import {
   Heart,
   Sunrise,
   Sun,
-  Moon
+  Moon,
+  ChevronDown
 } from 'lucide-react';
 import { AddReminderModal } from './AddReminderModal';
 import { ReactionModal } from './ReactionModal';
@@ -25,7 +26,7 @@ import { DailySetlogView } from './DailySetlogView';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
-import { getLocalTodayString, groupRemindersBySession } from '../services/date';
+import { getLocalTodayString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
 
 export const CaretakerView = () => {
   const { user, couple, socket, showToast, login } = useAuth();
@@ -33,6 +34,23 @@ export const CaretakerView = () => {
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Accordion state for schedule sections: only current session expanded by default
+  const [expandedSessions, setExpandedSessions] = useState(() => {
+    const current = getCurrentSessionId();
+    return {
+      morning: current === 'morning',
+      afternoon: current === 'afternoon',
+      evening: current === 'evening'
+    };
+  });
+
+  const toggleSession = (sessionId) => {
+    setExpandedSessions((prev) => ({
+      ...prev,
+      [sessionId]: !prev[sessionId]
+    }));
+  };
 
   // Couple pairing by code from girlfriend
   const [connectCodeInput, setConnectCodeInput] = useState('');
@@ -337,6 +355,9 @@ export const CaretakerView = () => {
   const currentTarget = stats?.today?.targetWaterMl || targetWater;
   const waterPercent = Math.min(100, Math.round((waterToday / currentTarget) * 100));
 
+  const loverName = couple?.loverName || (couple?.name ? couple.name.split('&')[0].trim() : 'Bạn gái');
+  const caretakerName = user?.name || couple?.caretakerName || (couple?.name?.includes('&') ? couple.name.split('&')[1]?.trim() : 'Bạn trai');
+
   // Group reminders into SÁNG - CHIỀU - TỐI in chronological order
   const scheduleSections = useMemo(() => {
     return groupRemindersBySession(reminders, getReminderCheckin);
@@ -384,11 +405,12 @@ export const CaretakerView = () => {
       <div className="rounded-3xl bg-gray-900 text-white p-6 shadow-xl mb-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <span className="text-xs font-semibold text-rose-400 uppercase tracking-wider block">
-              {couple?.name || 'Phòng đôi'}
-            </span>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400 uppercase tracking-wider mb-0.5">
+              <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400 shrink-0" />
+              <span>{loverName} &amp; {caretakerName}</span>
+            </div>
             <h2 className="text-xl font-bold mt-0.5 tracking-tight">
-              Theo dõi bạn gái
+              Theo dõi bạn gái {loverName}
             </h2>
           </div>
 
@@ -616,187 +638,223 @@ export const CaretakerView = () => {
                 const isMorning = section.id === 'morning';
                 const isAfternoon = section.id === 'afternoon';
                 const isEvening = section.id === 'evening';
+                const isExpanded = !!expandedSessions[section.id];
+                const isCurrentSession = getCurrentSessionId() === section.id;
 
                 return (
                   <div key={section.id} className="space-y-2.5">
-                    {/* Section Header */}
-                    <div
-                      className={`flex items-center justify-between px-3.5 py-2 rounded-2xl border text-xs font-semibold ${
+                    {/* Section Header with Click to Expand / Collapse */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSession(section.id)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-semibold transition active:scale-[0.99] select-none ${
                         isMorning
-                          ? 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+                          ? 'bg-amber-50/80 border-amber-200/90 text-amber-900 hover:bg-amber-100/70'
                           : isAfternoon
-                          ? 'bg-orange-50/70 border-orange-200/80 text-orange-900'
-                          : 'bg-indigo-50/70 border-indigo-200/80 text-indigo-900'
+                          ? 'bg-orange-50/80 border-orange-200/90 text-orange-900 hover:bg-orange-100/70'
+                          : 'bg-indigo-50/80 border-indigo-200/90 text-indigo-900 hover:bg-indigo-100/70'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        {isMorning && <Sunrise className="w-4 h-4 text-amber-500 shrink-0" />}
-                        {isAfternoon && <Sun className="w-4 h-4 text-orange-500 shrink-0" />}
-                        {isEvening && <Moon className="w-4 h-4 text-indigo-500 shrink-0" />}
+                        {isMorning && <Sunrise className="w-4 h-4 text-amber-600 shrink-0" />}
+                        {isAfternoon && <Sun className="w-4 h-4 text-orange-600 shrink-0" />}
+                        {isEvening && <Moon className="w-4 h-4 text-indigo-600 shrink-0" />}
                         <span className="font-bold tracking-wider">{section.shortTitle} • {section.title}</span>
                         <span className="text-[11px] opacity-70 font-normal">({section.timeRange})</span>
+                        {isCurrentSession && (
+                          <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-gray-800 shadow-sm border border-gray-200/60">
+                            Buổi hiện tại
+                          </span>
+                        )}
                       </div>
 
-                      <span
-                        className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                          section.items.length > 0 && section.completedCount === section.items.length
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-white/80 border border-current/20'
-                        }`}
-                      >
-                        {section.completedCount}/{section.items.length} hoàn thành
-                      </span>
-                    </div>
-
-                    {/* Reminders in this section or clean empty state */}
-                    {section.items.length === 0 ? (
-                      <div className="py-2.5 px-4 rounded-xl bg-white/60 border border-dashed border-gray-200 text-center text-xs text-gray-400">
-                        Không có mốc nhắc trong {section.title.toLowerCase()}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
+                            section.items.length > 0 && section.completedCount === section.items.length
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-white/90 border border-current/20 text-gray-700'
+                          }`}
+                        >
+                          {section.completedCount}/{section.items.length} xong
+                        </span>
+                        <ChevronDown
+                          className={`w-4 h-4 opacity-60 transition-transform duration-200 ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        />
                       </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {section.items.map((rem) => {
-                          const isWater = rem.type === 'water';
-                          const isCurrentSlot = rem.id === currentSlotReminderId;
-                          const completedCheckin = getReminderCheckin(rem);
-                          const isCompleted = !!completedCheckin;
+                    </button>
 
-                          return (
-                            <div
-                              key={rem.id}
-                              className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl transition-all duration-300 gap-3 relative ${
-                                isCurrentSlot
-                                  ? isCompleted
-                                    ? 'bg-emerald-50/40 border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-sm'
-                                    : 'bg-gradient-to-r from-rose-50/70 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-md shadow-rose-500/10'
-                                  : isCompleted
-                                  ? 'bg-gray-50/80 border border-gray-200'
-                                  : 'bg-white border border-gray-200 shadow-sm'
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div
-                                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                                    isCompleted
-                                      ? 'bg-emerald-500 text-white'
-                                      : isCurrentSlot
-                                      ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
-                                      : isWater
-                                      ? 'bg-sky-100 text-sky-700'
-                                      : 'bg-amber-100 text-amber-700'
-                                  }`}
-                                >
-                                  {isCompleted ? (
-                                    <CheckCircle2 className="w-4 h-4" />
-                                  ) : isWater ? (
-                                    <Droplets className="w-4 h-4" />
-                                  ) : (
-                                    <Utensils className="w-4 h-4" />
-                                  )}
-                                </div>
+                    {/* Reminders inside this session (Collapsed unless isExpanded) */}
+                    {isExpanded && (
+                      section.items.length === 0 ? (
+                        <div className="py-3 px-4 rounded-xl bg-white/60 border border-dashed border-gray-200 text-center text-xs text-gray-400">
+                          Không có mốc nhắc trong {section.title.toLowerCase()}
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {section.items.map((rem) => {
+                            const isWater = rem.type === 'water';
+                            const isCurrentSlot = rem.id === currentSlotReminderId;
+                            const completedCheckin = getReminderCheckin(rem);
+                            const isCompleted = !!completedCheckin;
+                            const isExpired = !isCompleted && isReminderExpired(rem.time, 30);
 
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span
-                                      className={`font-mono font-bold text-xs px-2 py-0.5 rounded-md ${
-                                        isCurrentSlot ? 'bg-rose-100 text-rose-800' : 'text-gray-900 bg-gray-100'
-                                      }`}
-                                    >
-                                      {rem.time}
-                                    </span>
+                            return (
+                              <div
+                                key={rem.id}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl transition-all duration-300 gap-3 relative ${
+                                  isExpired
+                                    ? 'opacity-50 grayscale-[35%] bg-gray-100/70 border border-gray-200'
+                                    : isCurrentSlot
+                                    ? isCompleted
+                                      ? 'bg-emerald-50/40 border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-sm'
+                                      : 'bg-gradient-to-r from-rose-50/70 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-md shadow-rose-500/10'
+                                    : isCompleted
+                                    ? 'bg-gray-50/80 border border-gray-200'
+                                    : 'bg-white border border-gray-200 shadow-sm'
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                                      isCompleted
+                                        ? 'bg-emerald-500 text-white'
+                                        : isExpired
+                                        ? 'bg-gray-300 text-gray-600'
+                                        : isCurrentSlot
+                                        ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
+                                        : isWater
+                                        ? 'bg-sky-100 text-sky-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                    }`}
+                                  >
+                                    {isCompleted ? (
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    ) : isWater ? (
+                                      <Droplets className="w-4 h-4" />
+                                    ) : (
+                                      <Utensils className="w-4 h-4" />
+                                    )}
+                                  </div>
 
-                                    {isCurrentSlot && (
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
                                       <span
-                                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 tracking-wide ${
-                                          isCompleted
-                                            ? 'bg-emerald-100 text-emerald-800'
-                                            : 'bg-rose-500 text-white shadow-sm'
+                                        className={`font-mono font-bold text-xs px-2 py-0.5 rounded-md ${
+                                          isExpired
+                                            ? 'bg-gray-200 text-gray-600'
+                                            : isCurrentSlot
+                                            ? 'bg-rose-100 text-rose-800'
+                                            : 'text-gray-900 bg-gray-100'
                                         }`}
                                       >
+                                        {rem.time}
+                                      </span>
+
+                                      {isCurrentSlot && !isExpired && (
                                         <span
-                                          className={`w-1.5 h-1.5 rounded-full ${
-                                            isCompleted ? 'bg-emerald-600' : 'bg-white animate-ping'
+                                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 tracking-wide ${
+                                            isCompleted
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-rose-500 text-white shadow-sm'
                                           }`}
-                                        />
-                                        Khung giờ hiện tại
+                                        >
+                                          <span
+                                            className={`w-1.5 h-1.5 rounded-full ${
+                                              isCompleted ? 'bg-emerald-600' : 'bg-white animate-ping'
+                                            }`}
+                                          />
+                                          Khung giờ hiện tại
+                                        </span>
+                                      )}
+
+                                      <span
+                                        className={`font-semibold text-xs ${
+                                          isCompleted ? 'text-gray-700' : isExpired ? 'text-gray-500 line-through' : 'text-gray-900'
+                                        }`}
+                                      >
+                                        {rem.title}
                                       </span>
+
+                                      {isWater && (
+                                        <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">
+                                          {rem.waterAmountMl}ml
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {rem.message && (
+                                      <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">{rem.message}</p>
                                     )}
 
-                                    <span
-                                      className={`font-semibold text-xs ${
-                                        isCompleted ? 'text-gray-700' : 'text-gray-900'
-                                      }`}
-                                    >
-                                      {rem.title}
-                                    </span>
-
-                                    {isWater && (
-                                      <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">
-                                        {rem.waterAmountMl}ml
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {rem.message && (
-                                    <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">{rem.message}</p>
-                                  )}
-
-                                  {/* Completion / Status Badge */}
-                                  <div className="mt-1.5 flex items-center gap-2">
-                                    {isCompleted ? (
-                                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                        Đã hoàn thành lúc {completedCheckin.time}
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200 flex items-center gap-1">
-                                        <Clock className="w-3 h-3 text-amber-600" />
-                                        Chưa có ảnh xác thực
-                                      </span>
-                                    )}
+                                    {/* Completion / Status Badge */}
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      {isCompleted ? (
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1">
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                          Đã hoàn thành lúc {completedCheckin.time}
+                                        </span>
+                                      ) : isExpired ? (
+                                        <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-[11px] font-medium flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-gray-500" />
+                                          Đã qua khung giờ
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200 flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-amber-600" />
+                                          Chưa có ảnh xác thực
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Action buttons on the right */}
-                              <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                                {isCompleted ? (
-                                  <button
-                                    onClick={() => setSelectedCheckin(completedCheckin)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold active:scale-95 transition"
-                                    title="Xem ảnh bằng chứng & phản hồi"
-                                  >
-                                    <img
-                                      src={completedCheckin.photoUrl}
-                                      alt="Ảnh"
-                                      className="w-5 h-5 rounded-md object-cover border border-emerald-300"
-                                    />
-                                    <span>Xem ảnh</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleQuickNudge(rem)}
-                                    disabled={nudgingId === rem.id}
-                                    className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/20 flex items-center gap-1.5 transition disabled:opacity-50"
-                                    title={`Bấm để gửi thông báo nhắc bạn gái: ${rem.title}`}
-                                  >
-                                    <Bell className="w-3.5 h-3.5 fill-white" />
-                                    <span>{nudgingId === rem.id ? 'Đang gửi...' : 'Nhắc nhở'}</span>
-                                  </button>
-                                )}
+                                {/* Action buttons on the right */}
+                                <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                                  {isCompleted ? (
+                                    <button
+                                      onClick={() => setSelectedCheckin(completedCheckin)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold active:scale-95 transition"
+                                      title="Xem ảnh bằng chứng & phản hồi"
+                                    >
+                                      <img
+                                        src={completedCheckin.photoUrl}
+                                        alt="Ảnh"
+                                        className="w-5 h-5 rounded-md object-cover border border-emerald-300"
+                                      />
+                                      <span>Xem ảnh</span>
+                                    </button>
+                                  ) : isExpired ? (
+                                    <span className="px-3 py-1.5 bg-gray-200 text-gray-400 font-semibold text-xs rounded-xl flex items-center gap-1">
+                                      <Clock className="w-3.5 h-3.5" /> Đã quá giờ
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleQuickNudge(rem)}
+                                      disabled={nudgingId === rem.id}
+                                      className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/20 flex items-center gap-1.5 transition disabled:opacity-50"
+                                      title={`Bấm để gửi thông báo nhắc bạn gái: ${rem.title}`}
+                                    >
+                                      <Bell className="w-3.5 h-3.5 fill-white" />
+                                      <span>{nudgingId === rem.id ? 'Đang gửi...' : 'Nhắc nhở'}</span>
+                                    </button>
+                                  )}
 
-                                <button
-                                  onClick={() => handleDeleteReminder(rem.id)}
-                                  className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition"
-                                  title="Xóa mốc nhắc này"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                  <button
+                                    onClick={() => handleDeleteReminder(rem.id)}
+                                    className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition"
+                                    title="Xóa mốc nhắc này"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )
                     )}
                   </div>
                 );

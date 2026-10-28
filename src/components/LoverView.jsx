@@ -16,7 +16,8 @@ import {
   X,
   Sunrise,
   Sun,
-  Moon
+  Moon,
+  ChevronDown
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
@@ -24,7 +25,7 @@ import { DailySetlogView } from './DailySetlogView';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
-import { getLocalTodayString, groupRemindersBySession } from '../services/date';
+import { getLocalTodayString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
 
 export const LoverView = () => {
   const { user, couple, socket, showToast } = useAuth();
@@ -32,6 +33,23 @@ export const LoverView = () => {
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Accordion state for schedule sections: only current session expanded by default
+  const [expandedSessions, setExpandedSessions] = useState(() => {
+    const current = getCurrentSessionId();
+    return {
+      morning: current === 'morning',
+      afternoon: current === 'afternoon',
+      evening: current === 'evening'
+    };
+  });
+
+  const toggleSession = (sessionId) => {
+    setExpandedSessions((prev) => ({
+      ...prev,
+      [sessionId]: !prev[sessionId]
+    }));
+  };
 
   // Modals
   const [activeSnapReminder, setActiveSnapReminder] = useState(null);
@@ -180,6 +198,10 @@ export const LoverView = () => {
   }, [socket, user, couple]);
 
   const handleOpenSnap = (reminder) => {
+    if (reminder?.time && !getReminderCheckin(reminder) && isReminderExpired(reminder.time, 30)) {
+      showToast('Mốc giờ này đã qua, không thể nộp ảnh bổ sung.');
+      return;
+    }
     setActiveSnapReminder(reminder);
     setIsCameraOpen(true);
   };
@@ -264,6 +286,9 @@ export const LoverView = () => {
   const targetWater = stats?.today?.targetWaterMl || 2000;
   const waterPercent = Math.min(100, Math.round((waterToday / targetWater) * 100));
 
+  const loverName = user?.name || couple?.loverName || (couple?.name ? couple.name.split('&')[0].trim() : 'Bạn gái');
+  const caretakerName = couple?.caretakerName || (couple?.name?.includes('&') ? couple.name.split('&')[1]?.trim() : 'Bạn trai');
+
   // Group reminders into SÁNG - CHIỀU - TỐI in chronological order
   const scheduleSections = useMemo(() => {
     return groupRemindersBySession(reminders, getReminderCheckin);
@@ -303,11 +328,12 @@ export const LoverView = () => {
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <span className="text-xs font-semibold text-rose-600 uppercase tracking-wider block">
-              {couple?.name || 'Nhật ký cá nhân'}
-            </span>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 uppercase tracking-wider mb-0.5">
+              <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 shrink-0" />
+              <span>{loverName} &amp; {caretakerName}</span>
+            </div>
             <h2 className="text-xl font-bold text-gray-900 mt-0.5">
-              Xin chào, {user?.name}
+              Xin chào, {loverName}
             </h2>
           </div>
 
@@ -411,56 +437,76 @@ export const LoverView = () => {
             const isMorning = section.id === 'morning';
             const isAfternoon = section.id === 'afternoon';
             const isEvening = section.id === 'evening';
+            const isExpanded = !!expandedSessions[section.id];
+            const isCurrentSession = getCurrentSessionId() === section.id;
 
             return (
               <div key={section.id} className="space-y-2.5">
-                {/* Section Header */}
-                <div
-                  className={`flex items-center justify-between px-3.5 py-2 rounded-2xl border text-xs font-semibold ${
+                {/* Section Header with Click to Expand / Collapse */}
+                <button
+                  type="button"
+                  onClick={() => toggleSession(section.id)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-semibold transition active:scale-[0.99] select-none ${
                     isMorning
-                      ? 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+                      ? 'bg-amber-50/80 border-amber-200/90 text-amber-900 hover:bg-amber-100/70'
                       : isAfternoon
-                      ? 'bg-orange-50/70 border-orange-200/80 text-orange-900'
-                      : 'bg-indigo-50/70 border-indigo-200/80 text-indigo-900'
+                      ? 'bg-orange-50/80 border-orange-200/90 text-orange-900 hover:bg-orange-100/70'
+                      : 'bg-indigo-50/80 border-indigo-200/90 text-indigo-900 hover:bg-indigo-100/70'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    {isMorning && <Sunrise className="w-4 h-4 text-amber-500 shrink-0" />}
-                    {isAfternoon && <Sun className="w-4 h-4 text-orange-500 shrink-0" />}
-                    {isEvening && <Moon className="w-4 h-4 text-indigo-500 shrink-0" />}
+                    {isMorning && <Sunrise className="w-4 h-4 text-amber-600 shrink-0" />}
+                    {isAfternoon && <Sun className="w-4 h-4 text-orange-600 shrink-0" />}
+                    {isEvening && <Moon className="w-4 h-4 text-indigo-600 shrink-0" />}
                     <span className="font-bold tracking-wider">{section.shortTitle} • {section.title}</span>
                     <span className="text-[11px] opacity-70 font-normal">({section.timeRange})</span>
+                    {isCurrentSession && (
+                      <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-gray-800 shadow-sm border border-gray-200/60">
+                        Buổi hiện tại
+                      </span>
+                    )}
                   </div>
 
-                  <span
-                    className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                      section.items.length > 0 && section.completedCount === section.items.length
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-white/80 border border-current/20'
-                    }`}
-                  >
-                    {section.completedCount}/{section.items.length} hoàn thành
-                  </span>
-                </div>
-
-                {/* Items in section or clean empty state */}
-                {section.items.length === 0 ? (
-                  <div className="py-2.5 px-4 rounded-xl bg-white/60 border border-dashed border-gray-200 text-center text-xs text-gray-400">
-                    Không có mốc nhắc trong {section.title.toLowerCase()}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
+                        section.items.length > 0 && section.completedCount === section.items.length
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-white/90 border border-current/20 text-gray-700'
+                      }`}
+                    >
+                      {section.completedCount}/{section.items.length} xong
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 opacity-60 transition-transform duration-200 ${
+                        isExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
                   </div>
-                ) : (
+                </button>
+
+                {/* Items in section (Collapsed unless isExpanded) */}
+                {isExpanded && (
+                  section.items.length === 0 ? (
+                    <div className="py-3 px-4 rounded-xl bg-white/60 border border-dashed border-gray-200 text-center text-xs text-gray-400">
+                      Không có mốc nhắc trong {section.title.toLowerCase()}
+                    </div>
+                  ) : (
                   <div className="space-y-2.5">
                     {section.items.map((reminder) => {
                       const completedCheckin = getReminderCheckin(reminder);
                       const isCompleted = !!completedCheckin;
                       const isWater = reminder.type === 'water';
                       const isCurrentSlot = reminder.id === currentSlotReminderId;
+                      const isExpired = !isCompleted && isReminderExpired(reminder.time, 30);
 
                       return (
                         <div
                           key={reminder.id}
                           className={`rounded-2xl p-4 transition-all duration-300 relative ${
-                            isCurrentSlot
+                            isExpired
+                              ? 'opacity-50 grayscale-[35%] bg-gray-100/70 border border-gray-200'
+                              : isCurrentSlot
                               ? isCompleted
                                 ? 'bg-emerald-50/40 border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-md'
                                 : 'bg-gradient-to-r from-rose-50/60 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl shadow-rose-500/15'
@@ -475,6 +521,8 @@ export const LoverView = () => {
                                 className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                                   isCompleted
                                     ? 'bg-emerald-500 text-white'
+                                    : isExpired
+                                    ? 'bg-gray-300 text-gray-600'
                                     : isCurrentSlot
                                     ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
                                     : isWater
@@ -495,13 +543,17 @@ export const LoverView = () => {
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <span
                                     className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md ${
-                                      isCurrentSlot ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                                      isExpired
+                                        ? 'bg-gray-200 text-gray-600'
+                                        : isCurrentSlot
+                                        ? 'bg-rose-100 text-rose-800'
+                                        : 'bg-gray-100 text-gray-700'
                                     }`}
                                   >
                                     {reminder.time}
                                   </span>
 
-                                  {isCurrentSlot && (
+                                  {isCurrentSlot && !isExpired && (
                                     <span
                                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 tracking-wide ${
                                         isCompleted
@@ -527,15 +579,24 @@ export const LoverView = () => {
 
                                 <h4
                                   className={`font-semibold text-sm mt-1.5 ${
-                                    isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
+                                    isCompleted
+                                      ? 'text-gray-500 line-through'
+                                      : isExpired
+                                      ? 'text-gray-500 line-through'
+                                      : 'text-gray-900'
                                   }`}
                                 >
                                   {reminder.title}
                                 </h4>
 
-                                {reminder.message && (
+                                {isExpired ? (
+                                  <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 font-medium">
+                                    <Clock className="w-3 h-3 text-gray-400" />
+                                    Đã qua khung giờ nộp ảnh
+                                  </p>
+                                ) : reminder.message ? (
                                   <p className="text-xs text-gray-500 mt-0.5">{reminder.message}</p>
-                                )}
+                                ) : null}
                               </div>
                             </div>
 
@@ -555,6 +616,15 @@ export const LoverView = () => {
                                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white">
                                     <CheckCircle2 className="w-4 h-4 text-emerald-300" />
                                   </div>
+                                </button>
+                              ) : isExpired ? (
+                                <button
+                                  disabled
+                                  className="py-2.5 px-3.5 bg-gray-200 text-gray-400 font-bold text-xs rounded-xl cursor-not-allowed flex items-center gap-1.5"
+                                  title="Đã quá giờ, không thể chụp ảnh bù"
+                                >
+                                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                  <span>Đã quá giờ</span>
                                 </button>
                               ) : isCurrentSlot ? (
                                 <button
@@ -577,7 +647,8 @@ export const LoverView = () => {
                       );
                     })}
                   </div>
-                )}
+                )
+              )}
               </div>
             );
           })}

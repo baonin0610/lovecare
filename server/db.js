@@ -165,13 +165,47 @@ class Database {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const data = JSON.parse(raw);
+        this.migrateCoupleNames(data);
+        return data;
       }
     } catch (err) {
       console.error('Error loading db file, initializing with defaults:', err);
     }
     this.save(defaultData);
     return defaultData;
+  }
+
+  migrateCoupleNames(data = this.data) {
+    if (!data || !data.couples || !data.users) return;
+    let changed = false;
+    for (const couple of data.couples) {
+      const loverUser = couple.loverId ? data.users.find(u => u.id === couple.loverId) : null;
+      const caretakerUser = couple.caretakerId ? data.users.find(u => u.id === couple.caretakerId) : null;
+      if (loverUser && (!couple.loverName || couple.loverName !== loverUser.name)) {
+        couple.loverName = loverUser.name;
+        changed = true;
+      }
+      if (caretakerUser && (!couple.caretakerName || couple.caretakerName !== caretakerUser.name)) {
+        couple.caretakerName = caretakerUser.name;
+        changed = true;
+      }
+      if (loverUser && caretakerUser) {
+        const correctName = `${loverUser.name} & ${caretakerUser.name}`;
+        if (couple.name !== correctName) {
+          couple.name = correctName;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+        console.log('[Database] Migrated couple names to match actual partner names.');
+      } catch (e) {
+        console.error('[Database] Migration save error:', e);
+      }
+    }
   }
 
   save(data = this.data) {

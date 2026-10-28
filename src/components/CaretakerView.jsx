@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Bell,
   Plus,
@@ -37,6 +37,43 @@ export const CaretakerView = () => {
   const [isNudgeOpen, setIsNudgeOpen] = useState(false);
   const [customNudgeText, setCustomNudgeText] = useState('');
   const [selectedReminderForNudge, setSelectedReminderForNudge] = useState('');
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentTimeFormatted = currentTime.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  const currentSlotReminderId = useMemo(() => {
+    if (!reminders || reminders.length === 0) return null;
+    const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+
+    let closestRem = null;
+    let minDiff = Infinity;
+
+    for (const rem of reminders) {
+      if (!rem.time) continue;
+      const [h, m] = rem.time.split(':').map(Number);
+      const remMinutes = h * 60 + m;
+      const diff = Math.abs(nowMinutes - remMinutes);
+
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestRem = rem;
+      }
+    }
+
+    if (closestRem && minDiff <= 60) {
+      return closestRem.id;
+    }
+    return closestRem ? closestRem.id : null;
+  }, [reminders, currentTime]);
 
   // Target water editing
   const [targetWater, setTargetWater] = useState(couple?.targetWaterMl || 2000);
@@ -333,27 +370,60 @@ export const CaretakerView = () => {
               </button>
             </div>
 
+            {/* Live Clock Bar for Caretaker */}
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200/80 mb-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-gray-500 font-medium">Bây giờ:</span>
+                <span className="font-mono font-bold text-gray-900">{currentTimeFormatted}</span>
+              </div>
+              <span className="text-[11px] font-medium text-gray-500">Mốc giờ hiện tại sẽ có viền sáng</span>
+            </div>
+
             <div className="space-y-2">
               {reminders.map((rem) => {
                 const isWater = rem.type === 'water';
+                const isCurrentSlot = rem.id === currentSlotReminderId;
+
                 return (
                   <div
                     key={rem.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50/70 border border-gray-200"
+                    className={`flex items-center justify-between p-3.5 rounded-2xl transition-all duration-300 relative ${
+                      isCurrentSlot
+                        ? 'bg-gradient-to-r from-rose-50/70 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-md shadow-rose-500/10'
+                        : 'bg-gray-50/70 border border-gray-200'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                          isWater ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'
+                          isCurrentSlot
+                            ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
+                            : isWater
+                            ? 'bg-sky-100 text-sky-700'
+                            : 'bg-amber-100 text-amber-700'
                         }`}
                       >
                         {isWater ? <Droplets className="w-4 h-4" /> : <Utensils className="w-4 h-4" />}
                       </div>
 
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs text-gray-900">{rem.time}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`font-mono font-bold text-xs px-2 py-0.5 rounded-md ${
+                            isCurrentSlot ? 'bg-rose-100 text-rose-800' : 'text-gray-900 bg-white border border-gray-200'
+                          }`}>
+                            {rem.time}
+                          </span>
+
+                          {isCurrentSlot && (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center gap-1 tracking-wide shadow-sm">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                              Khung giờ hiện tại
+                            </span>
+                          )}
+
                           <span className="font-semibold text-xs text-gray-900">{rem.title}</span>
+
                           {isWater && (
                             <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">
                               {rem.waterAmountMl}ml
@@ -361,7 +431,7 @@ export const CaretakerView = () => {
                           )}
                         </div>
                         {rem.message && (
-                          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
+                          <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">
                             {rem.message}
                           </p>
                         )}

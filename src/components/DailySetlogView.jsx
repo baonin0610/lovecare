@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -35,6 +35,18 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
   // Calendar month view state
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline' or 'calendar'
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentTimeFormatted = currentTime.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
 
   // Generate date strip (last 14 days + next 3 days)
   const dateStrip = useMemo(() => {
@@ -277,6 +289,20 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
       {/* VIEW MODE 1: Vertical Timeline of the Day */}
       {viewMode === 'timeline' && (
         <div className="space-y-3 pt-1">
+          {/* Live Realtime Indicator Bar if selectedDate is today */}
+          {selectedDate === formatLocalDate(new Date()) && (
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-2xl bg-white border border-pink-100 shadow-sm text-xs mb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span className="text-gray-500 font-medium">Đồng hồ bây giờ:</span>
+                <span className="font-mono font-bold text-rose-600 text-sm">{currentTimeFormatted}</span>
+              </div>
+              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                Khung giờ trực tiếp
+              </span>
+            </div>
+          )}
+
           {filteredCheckins.length === 0 ? (
             <div className="text-center py-10 glass-card rounded-3xl border border-dashed border-pink-200">
               <div className="w-12 h-12 mx-auto mb-2 rounded-2xl bg-pink-50 text-pink-400 flex items-center justify-center">
@@ -291,12 +317,25 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
             <div className="relative pl-6 before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-pink-200">
               {filteredCheckins.map((checkin) => {
                 const isWater = checkin.type === 'water';
+                const isToday = selectedDate === formatLocalDate(new Date());
+                let isCurrentHour = false;
+                if (isToday && checkin.time) {
+                  const [cH, cM] = checkin.time.split(':').map(Number);
+                  const checkinMinutes = (cH || 0) * 60 + (cM || 0);
+                  const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+                  isCurrentHour = Math.abs(nowMinutes - checkinMinutes) <= 60;
+                }
+
                 return (
                   <div key={checkin.id} className="relative mb-5 last:mb-0">
                     {/* Timeline Node Icon */}
                     <div
                       className={`absolute -left-6 top-1.5 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] shadow-sm ${
-                        isWater ? 'bg-sky-500' : 'bg-amber-500'
+                        isCurrentHour
+                          ? 'bg-rose-500 ring-4 ring-rose-500/30 animate-pulse'
+                          : isWater
+                          ? 'bg-sky-500'
+                          : 'bg-amber-500'
                       }`}
                     >
                       {isWater ? <Droplets className="w-3 h-3" /> : <Utensils className="w-3 h-3" />}
@@ -305,7 +344,11 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
                     {/* Timeline Card */}
                     <div
                       onClick={() => onSelectCheckin(checkin)}
-                      className="bg-white rounded-3xl p-3.5 shadow-md shadow-pink-500/5 border border-pink-100 hover:border-pink-300 transition cursor-pointer active:scale-98"
+                      className={`rounded-3xl p-3.5 transition-all duration-300 cursor-pointer active:scale-98 ${
+                        isCurrentHour
+                          ? 'bg-gradient-to-r from-rose-50/70 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl shadow-rose-500/15'
+                          : 'bg-white shadow-md shadow-pink-500/5 border border-pink-100 hover:border-pink-300'
+                      }`}
                     >
                       <div className="flex gap-3.5">
                         {/* Thumbnail */}
@@ -320,10 +363,18 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
 
                         {/* Details */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-pink-600 bg-pink-50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-lg flex items-center gap-1 ${
+                              isCurrentHour ? 'bg-rose-500 text-white' : 'text-pink-600 bg-pink-50'
+                            }`}>
                               <Clock className="w-3 h-3" /> {checkin.time}
                             </span>
+
+                            {isCurrentHour && (
+                              <span className="text-[10px] font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" /> Khung giờ hiện tại
+                              </span>
+                            )}
 
                             {isWater ? (
                               <span className="text-xs font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg">
@@ -336,7 +387,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
                             )}
                           </div>
 
-                          <h4 className="font-bold text-sm text-gray-800 mt-1 truncate">
+                          <h4 className="font-bold text-sm text-gray-800 mt-1.5 truncate">
                             {checkin.title}
                           </h4>
 

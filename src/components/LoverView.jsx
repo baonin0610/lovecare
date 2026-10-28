@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Droplets,
   Utensils,
@@ -30,6 +30,45 @@ export const LoverView = () => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [activeTab, setActiveTab] = useState('tasks'); // 'tasks', 'setlog', 'album'
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  // Keep track of current time every 5 seconds for glowing active time slot
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentTimeFormatted = currentTime.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  // Determine current active reminder slot (closest or within window)
+  const currentSlotReminderId = useMemo(() => {
+    if (!reminders || reminders.length === 0) return null;
+    const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+
+    let closestRem = null;
+    let minDiff = Infinity;
+
+    for (const rem of reminders) {
+      if (!rem.time) continue;
+      const [h, m] = rem.time.split(':').map(Number);
+      const remMinutes = h * 60 + m;
+      const diff = Math.abs(nowMinutes - remMinutes);
+
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestRem = rem;
+      }
+    }
+
+    if (closestRem && minDiff <= 60) {
+      return closestRem.id;
+    }
+    return closestRem ? closestRem.id : null;
+  }, [reminders, currentTime]);
 
   const loadData = async () => {
     try {
@@ -179,18 +218,38 @@ export const LoverView = () => {
       {/* TAB 1: Tasks Today */}
       {activeTab === 'tasks' && (
         <div className="space-y-3">
+          {/* Live Realtime Tracker Bar */}
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white border border-gray-200/80 shadow-sm text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="text-gray-500 font-medium">Bây giờ:</span>
+              <span className="font-mono font-bold text-gray-900 text-sm">{currentTimeFormatted}</span>
+            </div>
+            {currentSlotReminderId && (
+              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                Đang ở khung giờ cần thực hiện
+              </span>
+            )}
+          </div>
+
           {reminders.map((reminder) => {
             const completedCheckin = getReminderCheckin(reminder);
             const isCompleted = !!completedCheckin;
             const isWater = reminder.type === 'water';
+            const isCurrentSlot = reminder.id === currentSlotReminderId;
 
             return (
               <div
                 key={reminder.id}
-                className={`rounded-2xl p-4 transition-all border ${
-                  isCompleted
-                    ? 'bg-gray-50/70 border-gray-200'
-                    : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'
+                className={`rounded-2xl p-4 transition-all duration-300 relative ${
+                  isCurrentSlot
+                    ? isCompleted
+                      ? 'bg-emerald-50/40 border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-md'
+                      : 'bg-gradient-to-r from-rose-50/60 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl shadow-rose-500/15'
+                    : isCompleted
+                    ? 'bg-gray-50/70 border border-gray-200'
+                    : 'bg-white border border-gray-200 hover:border-gray-300 shadow-sm'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -199,6 +258,8 @@ export const LoverView = () => {
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         isCompleted
                           ? 'bg-emerald-500 text-white'
+                          : isCurrentSlot
+                          ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
                           : isWater
                           ? 'bg-sky-100 text-sky-600'
                           : 'bg-amber-100 text-amber-700'
@@ -214,10 +275,24 @@ export const LoverView = () => {
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md ${
+                          isCurrentSlot ? 'bg-rose-100 text-rose-800' : 'bg-gray-100 text-gray-700'
+                        }`}>
                           {reminder.time}
                         </span>
+
+                        {isCurrentSlot && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 tracking-wide ${
+                            isCompleted
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-white animate-ping'}`} />
+                            Khung giờ hiện tại
+                          </span>
+                        )}
+
                         {isWater && (
                           <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">
                             {reminder.waterAmountMl} ml
@@ -225,7 +300,7 @@ export const LoverView = () => {
                         )}
                       </div>
 
-                      <h4 className={`font-semibold text-sm mt-1 ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                      <h4 className={`font-semibold text-sm mt-1.5 ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                         {reminder.title}
                       </h4>
 
@@ -253,6 +328,13 @@ export const LoverView = () => {
                         <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white">
                           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
                         </div>
+                      </button>
+                    ) : isCurrentSlot ? (
+                      <button
+                        onClick={() => handleOpenSnap(reminder)}
+                        className="py-2.5 px-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-rose-500/30 flex items-center gap-1.5 active:scale-95 transition"
+                      >
+                        <Camera className="w-3.5 h-3.5" /> Chụp ngay
                       </button>
                     ) : (
                       <button

@@ -131,16 +131,74 @@ export const CameraCaptureModal = ({ isOpen, onClose, reminder, onComplete }) =>
     }, 'image/jpeg', 0.88);
   };
 
+  // Client-side image compression: scales down giant iOS photos to max 1280px (~150-250KB)
+  const compressFile = (rawFile) => {
+    return new Promise((resolve) => {
+      if (!rawFile || !rawFile.type.startsWith('image/')) {
+        return resolve({ file: rawFile, previewUrl: rawFile ? URL.createObjectURL(rawFile) : '' });
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1280;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Add cute watermark stamp
+          const dateStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' • ' + new Date().toLocaleDateString('vi-VN');
+          const badgeText = reminder?.type === 'meal' ? `${reminder.title || 'Ăn uống'}` : `Đã uống ${waterAmount}ml`;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+          const tagW = Math.min(320, canvas.width - 32);
+          ctx.roundRect ? ctx.roundRect(16, canvas.height - 68, tagW, 48, 10) : ctx.fillRect(16, canvas.height - 68, tagW, 48);
+          ctx.fill();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 15px sans-serif';
+          ctx.fillText(badgeText, 26, canvas.height - 42);
+          ctx.font = '11px sans-serif';
+          ctx.fillStyle = '#E2E8F0';
+          ctx.fillText(dateStr + ' • Xác thực thời gian thực', 26, canvas.height - 26);
+
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const compressed = new File([blob], `snap-${Date.now()}.jpg`, { type: 'image/jpeg' });
+              resolve({ file: compressed, previewUrl: URL.createObjectURL(blob) });
+            } else {
+              resolve({ file: rawFile, previewUrl: URL.createObjectURL(rawFile) });
+            }
+          }, 'image/jpeg', 0.82);
+        };
+        img.onerror = () => resolve({ file: rawFile, previewUrl: URL.createObjectURL(rawFile) });
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve({ file: rawFile, previewUrl: URL.createObjectURL(rawFile) });
+      reader.readAsDataURL(rawFile);
+    });
+  };
+
   // Fallback for file picker / native iOS camera
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       sounds.playCameraSnap();
-      setCapturedImage({
-        file,
-        previewUrl: URL.createObjectURL(file)
-      });
       stopCamera();
+      const res = await compressFile(file);
+      setCapturedImage(res);
     }
   };
 

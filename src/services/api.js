@@ -212,5 +212,17 @@ export const api = {
       body: JSON.stringify({ coupleId: couple.id, title, message, category })
     });
     return res.json();
+  },
+
+  // System Diagnostics & Health Audit
+  async getDiagnostic(user, couple) {
+    try {
+      const res = await fetch('/api/diagnostic', {
+        headers: getHeaders(user, couple)
+      });
+      return await res.json();
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 };

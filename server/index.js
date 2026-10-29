@@ -29,13 +29,15 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE']
-  }
+  },
+  maxHttpBufferSize: 1e7 // 10MB buffer to prevent dropping photo payloads
 });
 
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
 // Keep-alive endpoints for 24/7 uptime without sleep mode
 app.get('/api/health', (req, res) => {
@@ -50,6 +52,50 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/ping', (req, res) => {
   res.send('pong');
+});
+
+// Diagnostic & System Error Check endpoint
+app.get('/api/diagnostic', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+
+  const now = new Date();
+  const diag = {
+    timestamp: now.toISOString(),
+    serverTimeVn: getVietnamTimeString(now),
+    todayDateVn: getTodayString(),
+    uptimeSeconds: Math.round(process.uptime()),
+    supabase: {
+      configured: isSupabaseConfigured(),
+      connected: isSupabaseConfigured()
+    },
+    database: {
+      usersCount: (db.data.users || []).length,
+      couplesCount: (db.data.couples || []).length,
+      checkinsCount: (db.data.checkins || []).length,
+      remindersCount: (db.data.reminders || []).length
+    },
+    socket: {
+      connectedClients: io.engine ? io.engine.clientsCount : 0
+    }
+  };
+
+  if (coupleId) {
+    const couple = db.findCoupleById(coupleId);
+    const coupleCheckins = db.getCheckins(coupleId);
+    const coupleReminders = db.getReminders(coupleId);
+    diag.currentCouple = {
+      id: coupleId,
+      exists: !!couple,
+      caretakerName: couple?.caretakerName || 'Chưa rõ',
+      loverName: couple?.loverName || 'Chưa rõ',
+      totalCheckins: coupleCheckins.length,
+      todayCheckins: coupleCheckins.filter(c => c.date === getTodayString()).length,
+      totalReminders: coupleReminders.length
+    };
+  }
+
+  res.json(diag);
 });
 
 // Render free tier keep-alive: ping self every 8 minutes so the container never sleeps

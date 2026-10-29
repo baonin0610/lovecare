@@ -20,13 +20,15 @@ import {
   Moon,
   ChevronDown,
   BellRing,
-  Lock
+  Lock,
+  Activity
 } from 'lucide-react';
 import { AddReminderModal } from './AddReminderModal';
 import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
 import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { SweetCareModal } from './SweetCareModal';
+import { DiagnosticModal } from './DiagnosticModal';
 import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +53,7 @@ export const CaretakerView = () => {
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSweetCareOpen, setIsSweetCareOpen] = useState(false);
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
 
   // Accordion state for schedule sections: only current session expanded by default
   const [expandedSessions, setExpandedSessions] = useState(() => {
@@ -268,6 +271,28 @@ export const CaretakerView = () => {
     return () => clearInterval(dayCheckTimer);
   }, [currentDayStr]);
 
+  // Auto-refresh when tab becomes active / device unlocked
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    // Periodic background sync every 25s as backup
+    const syncInterval = setInterval(() => {
+      loadData();
+    }, 25000);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+      clearInterval(syncInterval);
+    };
+  }, [couple?.id]);
+
   const getReminderCheckin = (reminder) => {
     // 1. Strict filter: ONLY checkins from TODAY in Vietnam calendar can fulfill today's schedule!
     const todayCheckins = checkins.filter(isCheckinFromToday);
@@ -278,20 +303,20 @@ export const CaretakerView = () => {
     );
     if (direct) return direct;
 
-    // 3. Proximity match by time (within 45 mins) and type — ONLY among TODAY'S checkins!
-    if (reminder.time) {
-      const [rH, rM] = reminder.time.split(':').map(Number);
-      const rMinutes = rH * 60 + rM;
+    // 3. Session & Proximity match for ad-hoc or unlinked checkins
+    const remSession = getSessionForReminder(reminder.time);
+    return todayCheckins.find((c) => {
+      if (c.type !== reminder.type) return false;
+      if (reminder.time && c.time) {
+        const cSession = getSessionForReminder(c.time);
+        if (cSession === remSession) return true;
 
-      return todayCheckins.find((c) => {
-        if (c.type !== reminder.type) return false;
-        if (!c.time) return false;
+        const [rH, rM] = reminder.time.split(':').map(Number);
         const [cH, cM] = c.time.split(':').map(Number);
-        const cMinutes = cH * 60 + cM;
-        return Math.abs(cMinutes - rMinutes) <= 45;
-      });
-    }
-    return null;
+        return Math.abs((cH * 60 + cM) - (rH * 60 + rM)) <= 90;
+      }
+      return false;
+    });
   };
 
   const handleQuickNudge = async (rem) => {
@@ -686,6 +711,14 @@ export const CaretakerView = () => {
                 </button>
 
                 <button
+                  onClick={() => setIsDiagnosticOpen(true)}
+                  className="py-1.5 px-2.5 sm:px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-semibold text-xs border border-rose-200 shadow-xs flex items-center gap-1 active:scale-95 transition"
+                  title="Kiểm tra đồng bộ ảnh và lỗi hệ thống"
+                >
+                  <Activity className="w-3.5 h-3.5 text-rose-500" /> Check lỗi
+                </button>
+
+                <button
                   onClick={() => setIsAddOpen(true)}
                   className="py-1.5 px-2.5 sm:px-3 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-xs flex items-center gap-1 active:scale-95 transition"
                 >
@@ -701,7 +734,12 @@ export const CaretakerView = () => {
                 <span className="text-gray-500 font-medium">Bây giờ:</span>
                 <span className="font-mono font-bold text-gray-900">{currentTimeFormatted}</span>
               </div>
-              <span className="text-[11px] font-medium text-gray-500">Mốc giờ hiện tại có viền hồng</span>
+              <button
+                onClick={() => setIsDiagnosticOpen(true)}
+                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 hover:underline cursor-pointer"
+              >
+                <Activity className="w-3 h-3" /> Kiểm tra lỗi &amp; đồng bộ
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -1069,6 +1107,15 @@ export const CaretakerView = () => {
       <SweetCareModal
         isOpen={isSweetCareOpen}
         onClose={() => setIsSweetCareOpen(false)}
+      />
+
+      {/* System Diagnostic & Error Checker Modal */}
+      <DiagnosticModal
+        isOpen={isDiagnosticOpen}
+        onClose={() => setIsDiagnosticOpen(false)}
+        checkins={checkins}
+        reminders={reminders}
+        onForceSync={loadData}
       />
     </div>
   );

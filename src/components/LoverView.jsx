@@ -19,12 +19,14 @@ import {
   Moon,
   ChevronDown,
   BellRing,
-  Lock
+  Lock,
+  Activity
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
 import { AlarmSettingsModal } from './AlarmSettingsModal';
+import { DiagnosticModal } from './DiagnosticModal';
 import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -49,6 +51,7 @@ export const LoverView = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
 
   // Accordion state for schedule sections: only current session expanded by default
   const [expandedSessions, setExpandedSessions] = useState(() => {
@@ -230,15 +233,23 @@ export const LoverView = () => {
   };
 
   const handleCompleteCheckin = async (formData) => {
-    const saved = await api.createCheckin(user, couple, formData);
-    showToast('Đã gửi ảnh xác thực thành công.');
-    if (saved && !saved.error) {
+    try {
+      const saved = await api.createCheckin(user, couple, formData);
+      if (!saved || saved.error) {
+        showToast(`Không thể gửi ảnh: ${saved?.error || 'Lỗi kết nối'}`);
+        throw new Error(saved?.error || 'Lỗi kết nối');
+      }
+      showToast('Đã gửi ảnh xác thực thành công. ❤️');
       setCheckins((prev) => {
         if (prev.some((c) => c.id === saved.id)) return prev;
         return [saved, ...prev];
       });
+      await loadData();
+      return saved;
+    } catch (err) {
+      console.error('Error submitting checkin:', err);
+      throw err;
     }
-    await loadData();
   };
 
   const handleReact = async (checkinId, reaction) => {
@@ -273,6 +284,28 @@ export const LoverView = () => {
     return () => clearInterval(dayCheckTimer);
   }, [currentDayStr]);
 
+  // Auto-refresh when tab becomes active / device unlocked
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    // Periodic background sync every 25s as backup
+    const syncInterval = setInterval(() => {
+      loadData();
+    }, 25000);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+      clearInterval(syncInterval);
+    };
+  }, [couple?.id]);
+
   const getReminderCheckin = (reminder) => {
     // 1. Strict filter: ONLY checkins from TODAY in Vietnam calendar can fulfill today's schedule!
     const todayCheckins = checkins.filter(isCheckinFromToday);
@@ -283,20 +316,20 @@ export const LoverView = () => {
     );
     if (direct) return direct;
 
-    // 3. Proximity match by time (within 45 mins) and type — ONLY among TODAY'S checkins!
-    if (reminder.time) {
-      const [rH, rM] = reminder.time.split(':').map(Number);
-      const rMinutes = rH * 60 + rM;
+    // 3. Session & Proximity match for ad-hoc or unlinked checkins
+    const remSession = getSessionForReminder(reminder.time);
+    return todayCheckins.find((c) => {
+      if (c.type !== reminder.type) return false;
+      if (reminder.time && c.time) {
+        const cSession = getSessionForReminder(c.time);
+        if (cSession === remSession) return true;
 
-      return todayCheckins.find((c) => {
-        if (c.type !== reminder.type) return false;
-        if (!c.time) return false;
+        const [rH, rM] = reminder.time.split(':').map(Number);
         const [cH, cM] = c.time.split(':').map(Number);
-        const cMinutes = cH * 60 + cM;
-        return Math.abs(cMinutes - rMinutes) <= 45;
-      });
-    }
-    return null;
+        return Math.abs((cH * 60 + cM) - (rH * 60 + rM)) <= 90;
+      }
+      return false;
+    });
   };
 
   // Local backup alarm check: notifies girlfriend on exact minute if uncompleted
@@ -497,6 +530,14 @@ export const LoverView = () => {
                 title="Cài đặt thông báo bắt buộc toàn màn hình"
               >
                 <BellRing className="w-3.5 h-3.5 text-rose-500" /> Báo thức
+              </button>
+
+              <button
+                onClick={() => setIsDiagnosticOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] border border-rose-200 flex items-center gap-1 active:scale-95 transition"
+                title="Kiểm tra đồng bộ ảnh & lỗi hệ thống"
+              >
+                <Activity className="w-3.5 h-3.5 text-rose-500" /> Check lỗi
               </button>
             </div>
           </div>
@@ -865,6 +906,15 @@ export const LoverView = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onTestAlarm={testAlarm}
+      />
+
+      {/* System Diagnostic & Error Checker Modal */}
+      <DiagnosticModal
+        isOpen={isDiagnosticOpen}
+        onClose={() => setIsDiagnosticOpen(false)}
+        checkins={checkins}
+        reminders={reminders}
+        onForceSync={loadData}
       />
     </div>
   );

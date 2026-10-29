@@ -2,18 +2,22 @@ import webpush from 'web-push';
 import { db } from './db.js';
 
 export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BAWzSAmrANX41jHCprpizhTRAfeZSbdamfs1Op9mjNYtlRFUOsgUh5VjvMCOtwIhucGK6Z_6sGQSgWEDYi7RO7Q';
-export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'pIuUxqX-Y5ncnhjLFbZ1V4ZToR9Kb9awYCMjpaFLbUU';
+export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
 export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@lovecare.app';
 
-try {
-  webpush.setVapidDetails(
-    VAPID_SUBJECT,
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-  );
-  console.log('[WebPush] VAPID details configured successfully.');
-} catch (e) {
-  console.warn('[WebPush] VAPID configuration error:', e.message);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  try {
+    webpush.setVapidDetails(
+      VAPID_SUBJECT,
+      VAPID_PUBLIC_KEY,
+      VAPID_PRIVATE_KEY
+    );
+    console.log('[WebPush] VAPID details configured successfully.');
+  } catch (e) {
+    console.warn('[WebPush] VAPID configuration error:', e.message);
+  }
+} else {
+  console.log('[WebPush] VAPID_PRIVATE_KEY not set in environment. Push notifications ready upon setting env var.');
 }
 
 /**

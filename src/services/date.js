@@ -14,10 +14,11 @@ export const getLocalTodayString = () => {
 // Extracts canonical Vietnam YYYY-MM-DD date string from any checkin
 export const getCheckinDateString = (checkin) => {
   if (!checkin) return '';
-  // 1. Authoritative check: createdAt timestamp derived in Asia/Ho_Chi_Minh timezone
-  if (checkin.createdAt) {
+  // 1. Authoritative check: createdAt / created_at timestamp derived in Asia/Ho_Chi_Minh timezone
+  const createdTimestamp = checkin.createdAt || checkin.created_at;
+  if (createdTimestamp) {
     try {
-      const d = new Date(checkin.createdAt);
+      const d = new Date(createdTimestamp);
       if (!isNaN(d.getTime())) {
         return new Intl.DateTimeFormat('en-CA', {
           timeZone: 'Asia/Ho_Chi_Minh',

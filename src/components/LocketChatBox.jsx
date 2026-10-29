@@ -13,6 +13,7 @@ import {
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
+import { ChatMessagesSkeleton } from './SkeletonShimmer';
 
 const QUICK_CHIPS_BOYFRIEND = [
   '❤️ Yêu em nhiều',
@@ -203,9 +204,7 @@ export const LocketChatBox = ({
         {/* Message Thread Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F9FAFB]">
           {loading && messages.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 text-xs">
-              Đang tải tin nhắn...
-            </div>
+            <ChatMessagesSkeleton count={4} />
           ) : messages.length === 0 ? (
             <div className="py-16 text-center text-gray-400 flex flex-col items-center justify-center px-6">
               <div className="w-14 h-14 rounded-3xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-3 shadow-xs text-rose-500">

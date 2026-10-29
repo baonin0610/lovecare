@@ -29,6 +29,7 @@ import { DailySetlogView } from './DailySetlogView';
 import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { DiagnosticModal } from './DiagnosticModal';
 import { CuteAnimatedCat } from './CuteAnimatedCat';
+import { LoverDashboardSkeleton } from './SkeletonShimmer';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
@@ -385,6 +386,11 @@ export const LoverView = () => {
     return groupRemindersBySession(reminders, getReminderCheckin);
   }, [reminders, checkins]);
 
+  // Modern Skeleton Shimmer while initial data is being fetched
+  if (loading && !stats && reminders.length === 0) {
+    return <LoverDashboardSkeleton />;
+  }
+
   return (
     <div className="pb-24">
       {/* If Not Connected: Show Girlfriend's Code to Send to Boyfriend */}
@@ -736,15 +742,16 @@ export const LoverView = () => {
                               {isCompleted ? (
                                 <button
                                   onClick={() => setSelectedCheckin(completedCheckin)}
-                                  className="relative w-11 h-11 rounded-xl overflow-hidden border border-emerald-400 shadow-sm active:scale-95 transition"
+                                  className="relative w-11 h-11 rounded-xl overflow-hidden border border-emerald-400 shadow-sm active:scale-95 transition bg-slate-100 shimmer"
                                   title="Xem ảnh đã chụp"
                                 >
                                   <img
                                     src={completedCheckin.photoUrl}
                                     alt="Checkin"
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover relative z-10"
+                                    loading="lazy"
                                   />
-                                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white">
+                                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white z-20">
                                     <CheckCircle2 className="w-4 h-4 text-emerald-300" />
                                   </div>
                                 </button>
@@ -859,11 +866,12 @@ export const LoverView = () => {
                   onClick={() => setSelectedCheckin(checkin)}
                   className="group bg-white rounded-2xl overflow-hidden border border-gray-200 cursor-pointer active:scale-98 transition shadow-sm"
                 >
-                  <div className="aspect-square bg-gray-100 overflow-hidden relative">
+                  <div className="aspect-square bg-slate-100 shimmer overflow-hidden relative">
                     <img
                       src={checkin.photoUrl}
                       alt={checkin.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300 relative z-10"
+                      loading="lazy"
                     />
                     <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-mono px-2 py-0.5 rounded-md">
                       {checkin.time}

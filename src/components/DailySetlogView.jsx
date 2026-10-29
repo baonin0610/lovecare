@@ -346,11 +346,12 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
                     >
                       <div className="flex gap-3.5">
                         {/* Thumbnail */}
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-100 shrink-0 relative shadow-sm">
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-100 shimmer shrink-0 relative shadow-sm">
                           <img
                             src={checkin.photoUrl}
                             alt={checkin.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover relative z-10"
+                            loading="lazy"
                           />
                           <div className="absolute inset-0 bg-black/10 hover:bg-black/0 transition" />
                         </div>

@@ -31,6 +31,7 @@ import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { SweetCareModal } from './SweetCareModal';
 import { DiagnosticModal } from './DiagnosticModal';
 import { CuteAnimatedCat } from './CuteAnimatedCat';
+import { CaretakerDashboardSkeleton, MomentsFeedSkeleton } from './SkeletonShimmer';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
@@ -440,6 +441,11 @@ export const CaretakerView = () => {
     return groupRemindersBySession(reminders, getReminderCheckin);
   }, [reminders, checkins]);
 
+  // Modern Skeleton Shimmer while initial data is being fetched
+  if (loading && !stats && reminders.length === 0) {
+    return <CaretakerDashboardSkeleton />;
+  }
+
   return (
     <div className="pb-24">
       {/* If Not Connected: Enter Girlfriend's Code Card */}
@@ -673,11 +679,12 @@ export const CaretakerView = () => {
                   onClick={() => setSelectedCheckin(checkin)}
                   className="group bg-white rounded-2xl overflow-hidden border border-gray-200 cursor-pointer active:scale-98 transition shadow-sm"
                 >
-                  <div className="aspect-square bg-gray-100 overflow-hidden relative">
+                  <div className="aspect-square bg-slate-100 shimmer overflow-hidden relative">
                     <img
                       src={checkin.photoUrl}
                       alt={checkin.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300 relative z-10"
+                      loading="lazy"
                     />
                     <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-mono px-2 py-0.5 rounded-md">
                       {checkin.time}

@@ -1149,31 +1149,50 @@ app.get('/api/stats', (req, res) => {
   const todayStr = getTodayString();
   const allCheckins = db.getCheckins(coupleId);
 
+  // Authoritative Vietnam YYYY-MM-DD date extractor for checkins
+  const getCheckinDate = (c) => {
+    if (c.createdAt) {
+      try {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).format(new Date(c.createdAt));
+      } catch (e) {}
+    }
+    if (c.date) return String(c.date).slice(0, 10);
+    return '';
+  };
+
   // Today checkins
-  const todayCheckins = allCheckins.filter(c => c.date === todayStr);
+  const todayCheckins = allCheckins.filter(c => getCheckinDate(c) === todayStr);
   const waterCheckins = todayCheckins.filter(c => c.type === 'water');
   const mealCheckins = todayCheckins.filter(c => c.type === 'meal');
 
   const totalWaterToday = waterCheckins.reduce((acc, c) => acc + (c.waterAmountMl || 0), 0);
   const waterProgressPercent = Math.min(100, Math.round((totalWaterToday / targetWater) * 100));
 
-  // Past 7 days streak calculation
+  // Past 7 days streak calculation in Vietnam calendar
   const past7Days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const dStr = `${y}-${m}-${day}`;
+    const dStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d);
 
-    const dayCheckins = allCheckins.filter(c => c.date === dStr);
+    const [dY, dM, dD] = dStr.split('-');
+    const dayCheckins = allCheckins.filter(c => getCheckinDate(c) === dStr);
     const dayWater = dayCheckins.filter(c => c.type === 'water').reduce((acc, c) => acc + (c.waterAmountMl || 0), 0);
     const dayMeals = dayCheckins.filter(c => c.type === 'meal').length;
 
     past7Days.push({
       date: dStr,
-      label: i === 0 ? 'Hôm nay' : `${day}/${m}`,
+      label: i === 0 ? 'Hôm nay' : `${dD}/${dM}`,
       waterMl: dayWater,
       mealsCount: dayMeals,
       completed: dayWater >= (targetWater * 0.7) || dayMeals >= 2
@@ -1293,11 +1312,20 @@ function checkAndDispatchSweetCare(couple, currentNormTime, todayStr) {
   io.to(`couple:${couple.id}`).emit('chat_message', chatMsg);
 }
 
+let lastObservedDay = getTodayString();
+
 setInterval(() => {
   const now = new Date();
   const vnTimeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
   const todayStr = getTodayString();
   const currentNormTime = normalizeTime(vnTimeStr);
+
+  // Check if calendar day has rolled over (crossed 00:00 midnight)
+  if (todayStr !== lastObservedDay) {
+    console.log(`[Day Rollover] Midnight reached in Vietnam! Date changed from ${lastObservedDay} to ${todayStr}.`);
+    lastObservedDay = todayStr;
+    io.emit('day_changed', { date: todayStr });
+  }
 
   if (currentNormTime === lastTriggeredMinute) return;
   lastTriggeredMinute = currentNormTime;

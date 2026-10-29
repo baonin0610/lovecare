@@ -15,23 +15,19 @@ import {
   Smile,
   Flame
 } from 'lucide-react';
-import { getCheckinDateString } from '../services/date';
-
-// Helper to format local date YYYY-MM-DD
-const formatLocalDate = (d) => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import {
+  getCheckinDateString,
+  getLocalTodayString,
+  getVietnamDateString,
+  getVietnamTimeString,
+  getVietnamHoursAndMinutes
+} from '../services/date';
 
 export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin, targetWaterMl = 2000 }) => {
   const safeCheckins = Array.isArray(checkins) ? checkins : [];
 
-  // Currently selected date (YYYY-MM-DD)
-  const [selectedDate, setSelectedDate] = useState(() => {
-    return formatLocalDate(new Date());
-  });
+  // Currently selected date (YYYY-MM-DD in Vietnam timezone)
+  const [selectedDate, setSelectedDate] = useState(() => getLocalTodayString());
 
   // Calendar month view state
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
@@ -43,22 +39,18 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
     return () => clearInterval(timer);
   }, []);
 
-  const currentTimeFormatted = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
+  const currentTimeFormatted = getVietnamTimeString(currentTime);
 
   // Generate date strip (last 14 days + next 3 days)
   const dateStrip = useMemo(() => {
     const days = [];
     const today = new Date();
-    const todayStr = formatLocalDate(today);
+    const todayStr = getLocalTodayString();
 
     for (let i = -14; i <= 3; i++) {
       const d = new Date();
       d.setDate(today.getDate() + i);
-      const isoStr = formatLocalDate(d);
+      const isoStr = getVietnamDateString(d);
       const isToday = isoStr === todayStr;
 
       const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -129,7 +121,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
       const waterMl = dayCheckins.filter(c => c.type === 'water').reduce((acc, c) => acc + (c.waterAmountMl || 0), 0);
       const meals = dayCheckins.filter(c => c.type === 'meal').length;
       const isSelected = isoStr === selectedDate;
-      const isToday = isoStr === new Date().toISOString().split('T')[0];
+      const isToday = isoStr === getLocalTodayString();
 
       days.push({
         day,
@@ -149,7 +141,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
 
   // Selected date human label
   const selectedDateLabel = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalTodayString();
     if (selectedDate === todayStr) return 'Hôm nay';
     const parts = selectedDate.split('-');
     return `Ngày ${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -238,7 +230,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-extrabold text-gray-800">{selectedDateLabel}</span>
-            {selectedDate === new Date().toISOString().split('T')[0] && (
+            {selectedDate === getLocalTodayString() && (
               <span className="px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 text-[10px] font-extrabold">
                 Hôm nay
               </span>
@@ -291,7 +283,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
       {viewMode === 'timeline' && (
         <div className="space-y-3 pt-1">
           {/* Live Realtime Indicator Bar if selectedDate is today */}
-          {selectedDate === formatLocalDate(new Date()) && (
+          {selectedDate === getLocalTodayString() && (
             <div className="flex items-center justify-between px-3.5 py-2 rounded-2xl bg-white border border-pink-100 shadow-sm text-xs mb-1">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
@@ -318,12 +310,13 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
             <div className="relative pl-6 before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-pink-200">
               {filteredCheckins.map((checkin) => {
                 const isWater = checkin.type === 'water';
-                const isToday = selectedDate === formatLocalDate(new Date());
+                const isToday = selectedDate === getLocalTodayString();
                 let isCurrentHour = false;
                 if (isToday && checkin.time) {
                   const [cH, cM] = checkin.time.split(':').map(Number);
                   const checkinMinutes = (cH || 0) * 60 + (cM || 0);
-                  const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+                  const { hours: nowH, minutes: nowM } = getVietnamHoursAndMinutes(currentTime);
+                  const nowMinutes = nowH * 60 + nowM;
                   isCurrentHour = Math.abs(nowMinutes - checkinMinutes) <= 60;
                 }
 

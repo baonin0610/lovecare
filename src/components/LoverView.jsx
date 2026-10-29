@@ -42,7 +42,11 @@ import {
   isSessionExpired,
   getSessionForReminder,
   getSessionTitle,
-  getSessionOpenTime
+  getSessionOpenTime,
+  getVietnamDateString,
+  getTodayFormattedText,
+  getVietnamTimeString,
+  getVietnamHoursAndMinutes
 } from '../services/date';
 
 export const LoverView = () => {
@@ -90,16 +94,14 @@ export const LoverView = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const currentTimeFormatted = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
+  const currentTimeFormatted = getVietnamTimeString(currentTime);
+  const todayFormattedText = getTodayFormattedText(currentTime);
 
   // Determine current active reminder slot (closest or within window)
   const currentSlotReminderId = useMemo(() => {
     if (!reminders || reminders.length === 0) return null;
-    const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const { hours: nowH, minutes: nowM } = getVietnamHoursAndMinutes(currentTime);
+    const nowMinutes = nowH * 60 + nowM;
 
     let closestRem = null;
     let minDiff = Infinity;
@@ -125,6 +127,7 @@ export const LoverView = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setCurrentDayStr(getLocalTodayString());
       const [rems, chks, st] = await Promise.all([
         api.getReminders(user, couple),
         api.getCheckins(user, couple),
@@ -205,12 +208,18 @@ export const LoverView = () => {
       setReminders((prev) => prev.filter((r) => r.id !== delId));
     };
 
+    const handleDayChanged = () => {
+      console.log('[Socket] Day changed event received. Reloading today data.');
+      loadData();
+    };
+
     socket.on('new_checkin', handleNewCheckin);
     socket.on('checkin_reaction', handleReaction);
     socket.on('checkin_deleted', handleDeleteCheckinEvent);
     socket.on('reminder_created', handleNewReminder);
     socket.on('reminder_updated', handleUpdateReminder);
     socket.on('reminder_deleted', handleDeleteReminderEvent);
+    socket.on('day_changed', handleDayChanged);
 
     return () => {
       socket.off('new_checkin', handleNewCheckin);
@@ -219,6 +228,7 @@ export const LoverView = () => {
       socket.off('reminder_created', handleNewReminder);
       socket.off('reminder_updated', handleUpdateReminder);
       socket.off('reminder_deleted', handleDeleteReminderEvent);
+      socket.off('day_changed', handleDayChanged);
     };
   }, [socket, user, couple]);
 

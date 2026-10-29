@@ -43,7 +43,11 @@ import {
   isSessionUpcoming,
   isSessionExpired,
   getSessionForReminder,
-  getSessionTitle
+  getSessionTitle,
+  getVietnamDateString,
+  getTodayFormattedText,
+  getVietnamTimeString,
+  getVietnamHoursAndMinutes
 } from '../services/date';
 
 export const CaretakerView = () => {
@@ -98,15 +102,13 @@ export const CaretakerView = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const currentTimeFormatted = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
+  const currentTimeFormatted = getVietnamTimeString(currentTime);
+  const todayFormattedText = getTodayFormattedText(currentTime);
 
   const currentSlotReminderId = useMemo(() => {
     if (!reminders || reminders.length === 0) return null;
-    const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const { hours: nowH, minutes: nowM } = getVietnamHoursAndMinutes(currentTime);
+    const nowMinutes = nowH * 60 + nowM;
 
     let closestRem = null;
     let minDiff = Infinity;
@@ -135,6 +137,7 @@ export const CaretakerView = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setCurrentDayStr(getLocalTodayString());
       const [rems, chks, st] = await Promise.all([
         api.getReminders(user, couple),
         api.getCheckins(user, couple),
@@ -215,12 +218,18 @@ export const CaretakerView = () => {
       setReminders((prev) => prev.filter((r) => r.id !== delId));
     };
 
+    const handleDayChanged = () => {
+      console.log('[Socket] Day changed event received. Reloading today data.');
+      loadData();
+    };
+
     socket.on('new_checkin', handleNewCheckin);
     socket.on('checkin_reaction', handleReaction);
     socket.on('checkin_deleted', handleDeleteCheckinEvent);
     socket.on('reminder_created', handleNewReminder);
     socket.on('reminder_updated', handleUpdateReminder);
     socket.on('reminder_deleted', handleDeleteReminderEvent);
+    socket.on('day_changed', handleDayChanged);
 
     return () => {
       socket.off('new_checkin', handleNewCheckin);
@@ -229,6 +238,7 @@ export const CaretakerView = () => {
       socket.off('reminder_created', handleNewReminder);
       socket.off('reminder_updated', handleUpdateReminder);
       socket.off('reminder_deleted', handleDeleteReminderEvent);
+      socket.off('day_changed', handleDayChanged);
     };
   }, [socket, user, couple]);
 
@@ -754,11 +764,14 @@ export const CaretakerView = () => {
             </div>
 
             {/* Live Clock Bar for Caretaker */}
-            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200/80 mb-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200/80 mb-3 text-xs gap-2">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-gray-500 font-medium">Bây giờ:</span>
-                <span className="font-mono font-bold text-gray-900">{currentTimeFormatted}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="font-semibold text-gray-800 capitalize">{todayFormattedText}</span>
+                <span className="text-gray-300">•</span>
+                <span className="font-mono font-extrabold text-gray-900 bg-white px-2 py-0.5 rounded-md border border-gray-200/60 shadow-xs">
+                  {currentTimeFormatted}
+                </span>
               </div>
               <button
                 onClick={() => setIsDiagnosticOpen(true)}

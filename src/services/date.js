@@ -11,6 +11,57 @@ export const getLocalTodayString = () => {
   }
 };
 
+// Returns canonical Vietnam YYYY-MM-DD date string for any Date object
+export const getVietnamDateString = (d = new Date()) => {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d);
+  } catch (e) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+};
+
+// Returns user-friendly formatted date for headers, e.g. "Thứ Sáu, 30/10/2026"
+export const getTodayFormattedText = (date = new Date()) => {
+  try {
+    const weekday = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long' }).format(date);
+    const dayMonthYear = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(date);
+    const capWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+    return `${capWeekday}, ${dayMonthYear}`;
+  } catch (e) {
+    const d = new Date();
+    return `Ngày ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  }
+};
+
+// Returns exact Vietnam hour & minute to avoid browser timezone skew
+export const getVietnamHoursAndMinutes = (date = new Date()) => {
+  try {
+    const timeStr = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(date);
+    const [h, m] = timeStr.split(':').map(Number);
+    return { hours: h, minutes: m };
+  } catch (e) {
+    return { hours: date.getHours(), minutes: date.getMinutes() };
+  }
+};
+
 // Extracts canonical Vietnam YYYY-MM-DD date string from any checkin
 export const getCheckinDateString = (checkin) => {
   if (!checkin) return '';

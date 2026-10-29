@@ -79,6 +79,31 @@ export const getCurrentSessionId = () => {
   }
 };
 
+// Checks whether a reminder slot has NOT arrived yet (now < scheduled time)
+export const isReminderUpcoming = (reminderTime) => {
+  if (!reminderTime) return false;
+  try {
+    const vnTimeStr = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(new Date());
+    const [nowH, nowM] = vnTimeStr.split(':').map(Number);
+    const nowMinutes = nowH * 60 + nowM;
+
+    const [remH, remM] = reminderTime.split(':').map(Number);
+    const remMinutes = remH * 60 + remM;
+
+    return nowMinutes < remMinutes;
+  } catch (e) {
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const [remH, remM] = reminderTime.split(':').map(Number);
+    return nowMinutes < remH * 60 + remM;
+  }
+};
+
 // Checks whether a reminder slot has expired (e.g. 30 minutes past scheduled time)
 export const isReminderExpired = (reminderTime, bufferMinutes = 30) => {
   if (!reminderTime) return false;

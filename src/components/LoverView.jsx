@@ -18,7 +18,8 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  BellRing
+  BellRing,
+  Lock
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
@@ -27,7 +28,7 @@ import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
-import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
+import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired, isReminderUpcoming } from '../services/date';
 
 export const LoverView = () => {
   const { user, couple, socket, showToast, testAlarm } = useAuth();
@@ -201,6 +202,10 @@ export const LoverView = () => {
   }, [socket, user, couple]);
 
   const handleOpenSnap = (reminder) => {
+    if (reminder?.time && isReminderUpcoming(reminder.time)) {
+      showToast(`Chưa đến giờ (${reminder.time}), bạn đợi đúng giờ rồi chụp nhé! ❤️`);
+      return;
+    }
     if (reminder?.time && !getReminderCheckin(reminder) && isReminderExpired(reminder.time, 30)) {
       showToast('Mốc giờ này đã qua, không thể nộp ảnh bổ sung.');
       return;
@@ -355,7 +360,7 @@ export const LoverView = () => {
               <span>{loverName} &amp; {caretakerName}</span>
             </div>
             <h2 className="text-xl font-bold text-gray-900 mt-0.5">
-              Xin chào, {loverName}
+              Chào {loverName && loverName.toLowerCase().includes('duyen') ? 'Duyên' : (loverName || 'Duyên')}, Ngày mới vui vẻ nhé
             </h2>
           </div>
 
@@ -532,6 +537,7 @@ export const LoverView = () => {
                       const isWater = reminder.type === 'water';
                       const isCurrentSlot = reminder.id === currentSlotReminderId;
                       const isExpired = !isCompleted && isReminderExpired(reminder.time, 30);
+                      const isUpcoming = !isCompleted && !isExpired && isReminderUpcoming(reminder.time);
 
                       return (
                         <div
@@ -545,6 +551,8 @@ export const LoverView = () => {
                                 : 'bg-gradient-to-r from-rose-50/60 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl shadow-rose-500/15'
                               : isCompleted
                               ? 'bg-gray-50/70 border border-gray-200'
+                              : isUpcoming
+                              ? 'bg-white/90 border border-gray-200 shadow-xs'
                               : 'bg-white border border-gray-200 hover:border-gray-300 shadow-sm'
                           }`}
                         >
@@ -627,6 +635,11 @@ export const LoverView = () => {
                                     <Clock className="w-3 h-3 text-gray-400" />
                                     Đã qua khung giờ nộp ảnh
                                   </p>
+                                ) : isUpcoming ? (
+                                  <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 font-medium">
+                                    <Lock className="w-3 h-3 text-gray-400" />
+                                    Chưa đến giờ (sẽ mở chụp lúc {reminder.time})
+                                  </p>
                                 ) : reminder.message ? (
                                   <p className="text-xs text-gray-500 mt-0.5">{reminder.message}</p>
                                 ) : null}
@@ -658,6 +671,15 @@ export const LoverView = () => {
                                 >
                                   <Clock className="w-3.5 h-3.5 text-gray-400" />
                                   <span>Đã quá giờ</span>
+                                </button>
+                              ) : isUpcoming ? (
+                                <button
+                                  disabled
+                                  className="py-2 px-3 bg-gray-100 text-gray-400 font-semibold text-xs rounded-xl border border-gray-200 cursor-not-allowed flex items-center gap-1.5 opacity-80"
+                                  title={`Chưa đến giờ (${reminder.time}), chỉ khi tới giờ mới được chụp ảnh`}
+                                >
+                                  <Lock className="w-3.5 h-3.5 text-gray-400" />
+                                  <span>Chưa tới giờ</span>
                                 </button>
                               ) : isCurrentSlot ? (
                                 <button

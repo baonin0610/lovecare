@@ -19,7 +19,8 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  BellRing
+  BellRing,
+  Lock
 } from 'lucide-react';
 import { AddReminderModal } from './AddReminderModal';
 import { ReactionModal } from './ReactionModal';
@@ -29,7 +30,7 @@ import { SweetCareModal } from './SweetCareModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
-import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
+import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired, isReminderUpcoming } from '../services/date';
 
 export const CaretakerView = () => {
   const { user, couple, socket, showToast, login, testAlarm } = useAuth();
@@ -434,7 +435,7 @@ export const CaretakerView = () => {
               <span>{loverName} &amp; {caretakerName}</span>
             </div>
             <h2 className="text-xl font-bold mt-0.5 tracking-tight">
-              Theo dõi bạn gái {loverName}
+              Chào {loverName && loverName.toLowerCase().includes('duyen') ? 'Duyên' : (loverName || 'Duyên')}, Ngày mới vui vẻ nhé
             </h2>
           </div>
 
@@ -636,7 +637,7 @@ export const CaretakerView = () => {
                 <h3 className="font-bold text-gray-900 text-sm">
                   Lịch hôm nay của bạn gái
                 </h3>
-                <p className="text-xs text-gray-500">Theo dõi các mốc giờ và gửi nhắc nhở giục bạn gái chụp ảnh</p>
+                <p className="text-xs text-gray-500">Các mốc giờ trong ngày và gửi thông báo nhắc nhở khi đến giờ</p>
               </div>
 
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -742,6 +743,7 @@ export const CaretakerView = () => {
                             const completedCheckin = getReminderCheckin(rem);
                             const isCompleted = !!completedCheckin;
                             const isExpired = !isCompleted && isReminderExpired(rem.time, 30);
+                            const isUpcoming = !isCompleted && !isExpired && isReminderUpcoming(rem.time);
 
                             return (
                               <div
@@ -755,6 +757,8 @@ export const CaretakerView = () => {
                                       : 'bg-gradient-to-r from-rose-50/70 via-white to-pink-50/40 border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-md shadow-rose-500/10'
                                     : isCompleted
                                     ? 'bg-gray-50/80 border border-gray-200'
+                                    : isUpcoming
+                                    ? 'bg-white/90 border border-gray-200 shadow-xs'
                                     : 'bg-white border border-gray-200 shadow-sm'
                                 }`}
                               >
@@ -843,6 +847,11 @@ export const CaretakerView = () => {
                                           <Clock className="w-3 h-3 text-gray-500" />
                                           Đã qua khung giờ
                                         </span>
+                                      ) : isUpcoming ? (
+                                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-medium border border-slate-200 flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-slate-500" />
+                                          Chưa đến giờ ({rem.time})
+                                        </span>
                                       ) : (
                                         <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200 flex items-center gap-1">
                                           <Clock className="w-3 h-3 text-amber-600" />
@@ -872,6 +881,16 @@ export const CaretakerView = () => {
                                     <span className="px-3 py-1.5 bg-gray-200 text-gray-400 font-semibold text-xs rounded-xl flex items-center gap-1">
                                       <Clock className="w-3.5 h-3.5" /> Đã quá giờ
                                     </span>
+                                  ) : isUpcoming ? (
+                                    <button
+                                      onClick={() => handleQuickNudge(rem)}
+                                      disabled={nudgingId === rem.id}
+                                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold text-xs rounded-xl border border-gray-200 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                                      title={`Nhắc nhở trước cho bạn gái: ${rem.title}`}
+                                    >
+                                      <Bell className="w-3.5 h-3.5 text-gray-500" />
+                                      <span>{nudgingId === rem.id ? 'Đang gửi...' : 'Nhắc nhở'}</span>
+                                    </button>
                                   ) : (
                                     <button
                                       onClick={() => handleQuickNudge(rem)}

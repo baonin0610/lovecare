@@ -123,23 +123,41 @@ export const supabase = {
         createdAt: r.created_at
       }));
 
-      const camelCheckins = checkins.map(k => ({
-        id: k.id,
-        coupleId: k.couple_id,
-        userId: k.user_id,
-        userName: k.user_name,
-        reminderId: k.reminder_id,
-        type: k.type,
-        title: k.title,
-        waterAmountMl: k.water_amount_ml,
-        mealCategory: k.meal_category,
-        photoUrl: k.photo_url,
-        note: k.note,
-        date: k.date,
-        time: k.time,
-        reactions: k.reactions || [],
-        createdAt: k.created_at
-      }));
+      const camelCheckins = checkins.map(k => {
+        let normalizedDate = '';
+        if (k.created_at) {
+          try {
+            normalizedDate = new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }).format(new Date(k.created_at));
+          } catch (e) {}
+        }
+        if (!normalizedDate && k.date) {
+          normalizedDate = String(k.date).slice(0, 10);
+        }
+
+        return {
+          id: k.id,
+          coupleId: k.couple_id,
+          userId: k.user_id,
+          userName: k.user_name,
+          reminderId: k.reminder_id,
+          reminder_id: k.reminder_id,
+          type: k.type,
+          title: k.title,
+          waterAmountMl: k.water_amount_ml,
+          mealCategory: k.meal_category,
+          photoUrl: k.photo_url,
+          note: k.note,
+          date: normalizedDate,
+          time: k.time,
+          reactions: k.reactions || [],
+          createdAt: k.created_at
+        };
+      });
 
       return {
         users: camelUsers,
@@ -338,7 +356,8 @@ export const supabase = {
           note: chk.note || '',
           date: chk.date,
           time: chk.time,
-          reactions: chk.reactions || []
+          reactions: chk.reactions || [],
+          created_at: chk.createdAt || new Date().toISOString()
         })
       });
     } catch (e) {

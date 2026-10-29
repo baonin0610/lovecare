@@ -166,7 +166,7 @@ export const ReactionModal = ({
             {onDelete && (
               <button
                 onClick={handleDelete}
-                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition"
+                className="w-8 h-8 flex items-center justify-center text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-full transition active:scale-95"
                 title="Xóa lượt check-in này"
               >
                 <Trash2 className="w-4 h-4" />

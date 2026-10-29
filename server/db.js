@@ -313,7 +313,21 @@ class Database {
     return this.data.checkins.filter(c => {
       if (c.coupleId !== coupleId) return false;
       if (dateStr) {
-        return c.date === dateStr;
+        let chkDate = '';
+        if (c.createdAt) {
+          try {
+            chkDate = new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }).format(new Date(c.createdAt));
+          } catch (e) {}
+        }
+        if (!chkDate && c.date) {
+          chkDate = String(c.date).slice(0, 10);
+        }
+        return chkDate === dateStr;
       }
       return true;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

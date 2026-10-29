@@ -1264,7 +1264,7 @@ setInterval(() => {
       const remNormTime = normalizeTime(rem.time);
       if (rem.enabled && remNormTime === currentNormTime) {
         const checkins = db.getCheckins(couple.id, todayStr);
-        const alreadyDone = checkins.some((c) => c.reminderId === rem.id);
+        const alreadyDone = checkins.some((c) => (c.reminderId === rem.id || c.reminder_id === rem.id));
 
         if (!alreadyDone) {
           console.log(`[Alarm Trigger] Dispatching alarm for couple ${couple.code} at ${currentNormTime}: ${rem.title}`);

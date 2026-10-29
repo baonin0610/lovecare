@@ -27,7 +27,7 @@ import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
-import { getLocalTodayString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
+import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired } from '../services/date';
 
 export const LoverView = () => {
   const { user, couple, socket, showToast, testAlarm } = useAuth();
@@ -238,19 +238,38 @@ export const LoverView = () => {
     await loadData();
   };
 
+  // Automatic midnight reset tracker: cleans schedule immediately at 00:00 without page reload
+  const [currentDayStr, setCurrentDayStr] = useState(() => getLocalTodayString());
+
+  useEffect(() => {
+    const dayCheckTimer = setInterval(() => {
+      const newDayStr = getLocalTodayString();
+      if (newDayStr !== currentDayStr) {
+        console.log(`[Day Reset] Date changed from ${currentDayStr} to ${newDayStr}. Refreshing today schedule.`);
+        setCurrentDayStr(newDayStr);
+        loadData();
+      }
+    }, 15000);
+    return () => clearInterval(dayCheckTimer);
+  }, [currentDayStr]);
+
   const getReminderCheckin = (reminder) => {
-    const today = getLocalTodayString();
-    // 1. Direct match by reminderId on today
-    const direct = checkins.find(c => c.reminderId === reminder.id && c.date === today);
+    // 1. Strict filter: ONLY checkins from TODAY in Vietnam calendar can fulfill today's schedule!
+    const todayCheckins = checkins.filter(isCheckinFromToday);
+
+    // 2. Direct match by reminderId on today
+    const direct = todayCheckins.find(
+      (c) => (c.reminderId && c.reminderId === reminder.id) || (c.reminder_id && c.reminder_id === reminder.id)
+    );
     if (direct) return direct;
 
-    // 2. Proximity match by time (within 45 mins) and type
+    // 3. Proximity match by time (within 45 mins) and type — ONLY among TODAY'S checkins!
     if (reminder.time) {
       const [rH, rM] = reminder.time.split(':').map(Number);
       const rMinutes = rH * 60 + rM;
 
-      return checkins.find((c) => {
-        if (c.date !== today || c.type !== reminder.type) return false;
+      return todayCheckins.find((c) => {
+        if (c.type !== reminder.type) return false;
         if (!c.time) return false;
         const [cH, cM] = c.time.split(':').map(Number);
         const cMinutes = cH * 60 + cM;

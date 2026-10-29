@@ -11,6 +11,39 @@ export const getLocalTodayString = () => {
   }
 };
 
+// Extracts canonical Vietnam YYYY-MM-DD date string from any checkin
+export const getCheckinDateString = (checkin) => {
+  if (!checkin) return '';
+  // 1. Authoritative check: createdAt timestamp derived in Asia/Ho_Chi_Minh timezone
+  if (checkin.createdAt) {
+    try {
+      const d = new Date(checkin.createdAt);
+      if (!isNaN(d.getTime())) {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).format(d);
+      }
+    } catch (e) {}
+  }
+  // 2. Fallback to checkin.date YYYY-MM-DD string
+  if (checkin.date && typeof checkin.date === 'string') {
+    const clean = checkin.date.trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  }
+  return '';
+};
+
+// Returns true ONLY if checkin was completed TODAY in Vietnam calendar
+export const isCheckinFromToday = (checkin) => {
+  if (!checkin) return false;
+  const today = getLocalTodayString();
+  const cDate = getCheckinDateString(checkin);
+  return cDate === today;
+};
+
 export const getVietnamTimeString = (date = new Date()) => {
   try {
     return date.toLocaleTimeString('vi-VN', {

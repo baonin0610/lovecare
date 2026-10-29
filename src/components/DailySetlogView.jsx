@@ -15,6 +15,7 @@ import {
   Smile,
   Flame
 } from 'lucide-react';
+import { getCheckinDateString } from '../services/date';
 
 // Helper to format local date YYYY-MM-DD
 const formatLocalDate = (d) => {
@@ -64,7 +65,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
       const dayName = isToday ? 'Hôm nay' : dayNames[d.getDay()];
 
       // Check stats for this day
-      const dayCheckins = safeCheckins.filter(c => c && c.date === isoStr);
+      const dayCheckins = safeCheckins.filter(c => c && getCheckinDateString(c) === isoStr);
       const dayWater = dayCheckins.filter(c => c.type === 'water').reduce((acc, c) => acc + (c.waterAmountMl || 0), 0);
       const dayMeals = dayCheckins.filter(c => c.type === 'meal').length;
       const hasCompleted = dayWater >= (targetWaterMl * 0.7) || (dayMeals >= 2 && dayWater > 0);
@@ -85,7 +86,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
   // Checkins for the currently selected date
   const filteredCheckins = useMemo(() => {
     return safeCheckins
-      .filter(c => c && c.date === selectedDate)
+      .filter(c => c && getCheckinDateString(c) === selectedDate)
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   }, [safeCheckins, selectedDate]);
 
@@ -124,7 +125,7 @@ export const DailySetlogView = ({ checkins = [], reminders = [], onSelectCheckin
       const dStr = String(day).padStart(2, '0');
       const isoStr = `${year}-${mStr}-${dStr}`;
 
-      const dayCheckins = checkins.filter(c => c.date === isoStr);
+      const dayCheckins = checkins.filter(c => getCheckinDateString(c) === isoStr);
       const waterMl = dayCheckins.filter(c => c.type === 'water').reduce((acc, c) => acc + (c.waterAmountMl || 0), 0);
       const meals = dayCheckins.filter(c => c.type === 'meal').length;
       const isSelected = isoStr === selectedDate;

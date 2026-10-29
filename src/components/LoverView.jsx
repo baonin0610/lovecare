@@ -25,6 +25,7 @@ import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
 import { AlarmSettingsModal } from './AlarmSettingsModal';
+import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
@@ -352,19 +353,34 @@ export const LoverView = () => {
       )}
 
       {/* Overview Card - Minimalist Apple Health Style */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 uppercase tracking-wider mb-0.5">
-              <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 shrink-0" />
-              <span>{loverName} &amp; {caretakerName}</span>
+      <div className="bg-gradient-to-br from-white via-rose-50/30 to-pink-50/20 rounded-3xl p-5 sm:p-6 shadow-sm border border-rose-100 mb-5 relative overflow-hidden">
+        {/* Subtle decorative glow */}
+        <div className="absolute -top-12 -right-12 w-44 h-44 bg-rose-200/25 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex items-start justify-between gap-3 mb-4 relative z-10">
+          <div className="flex items-start gap-3 sm:gap-4">
+            {/* Animated Cute Kitten Character waving */}
+            <CuteAnimatedCat size={56} className="shrink-0 -mt-1 hover:scale-105 transition-transform" />
+
+            <div>
+              {/* Couple Tag Badge */}
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-600 uppercase tracking-wider bg-rose-50 border border-rose-200/70 px-2.5 py-0.5 rounded-full mb-1">
+                <Heart className="w-3 h-3 fill-rose-500 text-rose-500 animate-pulse shrink-0" />
+                <span>{loverName} &amp; {caretakerName}</span>
+              </div>
+
+              {/* Refined softer greeting typography */}
+              <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight leading-snug flex items-center gap-1">
+                <span>Chào {loverName && loverName.toLowerCase().includes('duyen') ? 'Duyên' : (loverName || 'Duyên')}, ngày mới vui vẻ nhé!</span>
+                <span className="text-amber-400 inline-block animate-pulse">✨</span>
+              </h2>
+              <p className="text-[11px] text-gray-500 mt-0.5 font-normal">
+                Uống đủ nước và ăn uống đầy đủ để giữ gìn sức khỏe nhé em yêu ❤️
+              </p>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mt-0.5">
-              Chào {loverName && loverName.toLowerCase().includes('duyen') ? 'Duyên' : (loverName || 'Duyên')}, Ngày mới vui vẻ nhé
-            </h2>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/90 border border-rose-200/70 text-xs font-semibold text-gray-700 shadow-xs shrink-0 self-start">
             <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
             <span>Chuỗi {stats?.currentStreak || 1} ngày</span>
           </div>

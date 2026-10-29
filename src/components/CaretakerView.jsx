@@ -27,6 +27,7 @@ import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
 import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { SweetCareModal } from './SweetCareModal';
+import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
@@ -427,24 +428,41 @@ export const CaretakerView = () => {
       )}
 
       {/* Overview Card - Minimal Dark Theme */}
-      <div className="rounded-3xl bg-gray-900 text-white p-6 shadow-xl mb-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400 uppercase tracking-wider mb-0.5">
-              <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400 shrink-0" />
-              <span>{loverName} &amp; {caretakerName}</span>
+      <div className="rounded-3xl bg-gradient-to-br from-gray-900 via-slate-900 to-gray-950 text-white p-5 sm:p-6 shadow-xl mb-5 border border-white/10 relative overflow-hidden">
+        {/* Subtle decorative background glow */}
+        <div className="absolute -top-12 -right-12 w-44 h-44 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex items-start justify-between gap-3 mb-4 relative z-10">
+          <div className="flex items-start gap-3 sm:gap-4">
+            {/* Animated Cute Kitten Character waving on top/side */}
+            <CuteAnimatedCat size={56} className="shrink-0 -mt-1 hover:scale-105 transition-transform" />
+
+            <div>
+              {/* Couple Tag Badge */}
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-300 uppercase tracking-wider bg-rose-500/15 border border-rose-500/25 px-2.5 py-0.5 rounded-full mb-1">
+                <Heart className="w-3 h-3 fill-rose-400 text-rose-400 animate-pulse shrink-0" />
+                <span>{loverName} &amp; {caretakerName}</span>
+              </div>
+
+              {/* Refined, softer greeting typography */}
+              <h2 className="text-sm sm:text-base font-bold text-white tracking-tight leading-snug flex items-center gap-1.5">
+                <span>Chào {loverName && loverName.toLowerCase().includes('duyen') ? 'Duyên' : (loverName || 'Duyên')}, ngày mới vui vẻ nhé!</span>
+                <span className="text-amber-300 inline-block animate-pulse">✨</span>
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5 font-normal">
+                Chúc bạn gái một ngày thật nhiều niềm vui và luôn mỉm cười ❤️
+              </p>
             </div>
-            <h2 className="text-xl font-bold mt-0.5 tracking-tight">
-              Chào {loverName && loverName.toLowerCase().includes('duyen') ? 'Duyên' : (loverName || 'Duyên')}, Ngày mới vui vẻ nhé
-            </h2>
           </div>
 
           {/* Quick Buzz Button */}
           <button
             onClick={() => setIsNudgeOpen(true)}
-            className="py-2 px-3.5 bg-rose-500 hover:bg-rose-600 rounded-xl font-semibold text-xs shadow-md flex items-center gap-1.5 active:scale-95 transition"
+            className="py-2 px-3 sm:px-3.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 rounded-xl font-bold text-xs shadow-md shadow-rose-500/25 flex items-center gap-1.5 active:scale-95 transition shrink-0 self-start"
           >
-            <Bell className="w-4 h-4 fill-white" /> Nhắc nhở ngay
+            <Bell className="w-3.5 h-3.5 fill-white" />
+            <span className="hidden xs:inline">Nhắc nhở ngay</span>
+            <span className="xs:hidden">Nhắc ngay</span>
           </button>
         </div>
 

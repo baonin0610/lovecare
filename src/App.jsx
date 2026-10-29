@@ -713,7 +713,7 @@ export function App() {
 
       {/* Floating Locket Chat Bubble at corner */}
       {user && (
-        <div className="fixed bottom-6 right-5 z-40 flex items-center gap-2">
+        <div className="fixed fab-chat-bottom right-5 z-40 flex items-center gap-2">
           {/* Preview pill if there was a recent message and chat box is closed */}
           {lastChatMessage && !isChatBoxOpen && (
             <button

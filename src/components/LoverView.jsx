@@ -29,7 +29,18 @@ import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
-import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired, isReminderUpcoming } from '../services/date';
+import {
+  getLocalTodayString,
+  isCheckinFromToday,
+  getCheckinDateString,
+  groupRemindersBySession,
+  getCurrentSessionId,
+  isSessionUpcoming,
+  isSessionExpired,
+  getSessionForReminder,
+  getSessionTitle,
+  getSessionOpenTime
+} from '../services/date';
 
 export const LoverView = () => {
   const { user, couple, socket, showToast, testAlarm } = useAuth();
@@ -203,12 +214,15 @@ export const LoverView = () => {
   }, [socket, user, couple]);
 
   const handleOpenSnap = (reminder) => {
-    if (reminder?.time && isReminderUpcoming(reminder.time)) {
-      showToast(`Chưa đến giờ (${reminder.time}), bạn đợi đúng giờ rồi chụp nhé! ❤️`);
+    if (reminder?.time && isSessionUpcoming(reminder.time)) {
+      const remSession = getSessionForReminder(reminder.time);
+      const sessionTitle = getSessionTitle(remSession);
+      const openTime = getSessionOpenTime(remSession);
+      showToast(`Mốc này thuộc ${sessionTitle}, sẽ mở lúc ${openTime} nhé! ❤️`);
       return;
     }
-    if (reminder?.time && !getReminderCheckin(reminder) && isReminderExpired(reminder.time, 30)) {
-      showToast('Mốc giờ này đã qua, không thể nộp ảnh bổ sung.');
+    if (reminder?.time && !getReminderCheckin(reminder) && isSessionExpired(reminder.time)) {
+      showToast('Mốc giờ này thuộc buổi trước đã qua.');
       return;
     }
     setActiveSnapReminder(reminder);
@@ -552,8 +566,11 @@ export const LoverView = () => {
                       const isCompleted = !!completedCheckin;
                       const isWater = reminder.type === 'water';
                       const isCurrentSlot = reminder.id === currentSlotReminderId;
-                      const isExpired = !isCompleted && isReminderExpired(reminder.time, 30);
-                      const isUpcoming = !isCompleted && !isExpired && isReminderUpcoming(reminder.time);
+                      const isExpired = !isCompleted && isSessionExpired(reminder.time);
+                      const isUpcoming = !isCompleted && !isExpired && isSessionUpcoming(reminder.time);
+                      const remSession = getSessionForReminder(reminder.time);
+                      const sessionName = getSessionTitle(remSession);
+                      const openTime = getSessionOpenTime(remSession);
 
                       return (
                         <div
@@ -649,12 +666,12 @@ export const LoverView = () => {
                                 {isExpired ? (
                                   <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 font-medium">
                                     <Clock className="w-3 h-3 text-gray-400" />
-                                    Đã qua khung giờ nộp ảnh
+                                    Đã qua buổi nộp ảnh
                                   </p>
                                 ) : isUpcoming ? (
                                   <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 font-medium">
                                     <Lock className="w-3 h-3 text-gray-400" />
-                                    Chưa đến giờ (sẽ mở chụp lúc {reminder.time})
+                                    Chưa tới buổi (sẽ mở vào {sessionName} lúc {openTime})
                                   </p>
                                 ) : reminder.message ? (
                                   <p className="text-xs text-gray-500 mt-0.5">{reminder.message}</p>
@@ -683,19 +700,19 @@ export const LoverView = () => {
                                 <button
                                   disabled
                                   className="py-2.5 px-3.5 bg-gray-200 text-gray-400 font-bold text-xs rounded-xl cursor-not-allowed flex items-center gap-1.5"
-                                  title="Đã quá giờ, không thể chụp ảnh bù"
+                                  title="Đã qua buổi, không thể chụp ảnh bù"
                                 >
                                   <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                  <span>Đã quá giờ</span>
+                                  <span>Đã qua buổi</span>
                                 </button>
                               ) : isUpcoming ? (
                                 <button
                                   disabled
                                   className="py-2 px-3 bg-gray-100 text-gray-400 font-semibold text-xs rounded-xl border border-gray-200 cursor-not-allowed flex items-center gap-1.5 opacity-80"
-                                  title={`Chưa đến giờ (${reminder.time}), chỉ khi tới giờ mới được chụp ảnh`}
+                                  title={`Chưa tới buổi (${sessionName}), sẽ mở lúc ${openTime}`}
                                 >
                                   <Lock className="w-3.5 h-3.5 text-gray-400" />
-                                  <span>Chưa tới giờ</span>
+                                  <span>Chưa tới buổi</span>
                                 </button>
                               ) : isCurrentSlot ? (
                                 <button
@@ -815,14 +832,14 @@ export const LoverView = () => {
         </div>
       )}
 
-      {/* Floating Action Button for Quick Snap */}
-      <div className="fixed bottom-6 right-6 z-40">
+      {/* Floating Action Button for Quick Snap - Stacked neatly directly above Chat Bubble */}
+      <div className="fixed fab-camera-bottom right-5 z-40">
         <button
           onClick={() => handleOpenSnap({ type: 'water', title: 'Uống nước phát sinh', waterAmountMl: 300 })}
-          className="w-14 h-14 rounded-full bg-gray-900 text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition"
-          title="Chụp ảnh xác thực"
+          className="w-12 h-12 rounded-full bg-gray-900 hover:bg-black text-white shadow-xl flex items-center justify-center border-2 border-white ring-4 ring-gray-900/10 active:scale-90 transition-all duration-200 group"
+          title="Chụp ảnh nhanh"
         >
-          <Camera className="w-6 h-6" />
+          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
         </button>
       </div>
 

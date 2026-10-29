@@ -79,6 +79,56 @@ export const getCurrentSessionId = () => {
   }
 };
 
+// Session ordering for progression through the day
+export const SESSION_RANK = {
+  morning: 0,
+  afternoon: 1,
+  evening: 2
+};
+
+// Determines which session a reminder belongs to based on HH:mm string
+export const getSessionForReminder = (timeStr) => {
+  if (!timeStr) return 'morning';
+  const [h] = timeStr.split(':').map(Number);
+  if (isNaN(h) || h < 12) return 'morning';
+  if (h < 18) return 'afternoon';
+  return 'evening';
+};
+
+// Returns user-friendly session label
+export const getSessionTitle = (sessionId) => {
+  if (sessionId === 'morning') return 'Buổi Sáng';
+  if (sessionId === 'afternoon') return 'Buổi Chiều';
+  if (sessionId === 'evening') return 'Buổi Tối';
+  return 'Buổi';
+};
+
+// Returns the start time of a given session
+export const getSessionOpenTime = (sessionId) => {
+  if (sessionId === 'afternoon') return '12:00';
+  if (sessionId === 'evening') return '18:00';
+  return '00:00';
+};
+
+// Checks whether a reminder belongs to a FUTURE session (not yet arrived)
+// When in 'morning', afternoon and evening are upcoming.
+// All items in the current session are completely unlocked and open for taking photos.
+export const isSessionUpcoming = (reminderTime) => {
+  if (!reminderTime) return false;
+  const currentSession = getCurrentSessionId();
+  const remSession = getSessionForReminder(reminderTime);
+  return (SESSION_RANK[remSession] ?? 0) > (SESSION_RANK[currentSession] ?? 0);
+};
+
+// Checks whether a reminder belongs to an ALREADY PASSED session (expired)
+// e.g. Morning reminders when current session is Afternoon or Evening
+export const isSessionExpired = (reminderTime) => {
+  if (!reminderTime) return false;
+  const currentSession = getCurrentSessionId();
+  const remSession = getSessionForReminder(reminderTime);
+  return (SESSION_RANK[remSession] ?? 0) < (SESSION_RANK[currentSession] ?? 0);
+};
+
 // Checks whether a reminder slot has NOT arrived yet (now < scheduled time)
 export const isReminderUpcoming = (reminderTime) => {
   if (!reminderTime) return false;

@@ -31,7 +31,17 @@ import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
-import { getLocalTodayString, isCheckinFromToday, getCheckinDateString, groupRemindersBySession, getCurrentSessionId, isReminderExpired, isReminderUpcoming } from '../services/date';
+import {
+  getLocalTodayString,
+  isCheckinFromToday,
+  getCheckinDateString,
+  groupRemindersBySession,
+  getCurrentSessionId,
+  isSessionUpcoming,
+  isSessionExpired,
+  getSessionForReminder,
+  getSessionTitle
+} from '../services/date';
 
 export const CaretakerView = () => {
   const { user, couple, socket, showToast, login, testAlarm } = useAuth();
@@ -760,8 +770,10 @@ export const CaretakerView = () => {
                             const isCurrentSlot = rem.id === currentSlotReminderId;
                             const completedCheckin = getReminderCheckin(rem);
                             const isCompleted = !!completedCheckin;
-                            const isExpired = !isCompleted && isReminderExpired(rem.time, 30);
-                            const isUpcoming = !isCompleted && !isExpired && isReminderUpcoming(rem.time);
+                            const isExpired = !isCompleted && isSessionExpired(rem.time);
+                            const isUpcoming = !isCompleted && !isExpired && isSessionUpcoming(rem.time);
+                            const remSession = getSessionForReminder(rem.time);
+                            const sessionName = getSessionTitle(remSession);
 
                             return (
                               <div
@@ -863,12 +875,12 @@ export const CaretakerView = () => {
                                       ) : isExpired ? (
                                         <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-[11px] font-medium flex items-center gap-1">
                                           <Clock className="w-3 h-3 text-gray-500" />
-                                          Đã qua khung giờ
+                                          Đã qua buổi
                                         </span>
                                       ) : isUpcoming ? (
                                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-medium border border-slate-200 flex items-center gap-1">
                                           <Clock className="w-3 h-3 text-slate-500" />
-                                          Chưa đến giờ ({rem.time})
+                                          Chưa tới buổi ({sessionName})
                                         </span>
                                       ) : (
                                         <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200 flex items-center gap-1">

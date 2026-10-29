@@ -12,6 +12,7 @@ import { UpdatePromptModal } from './components/UpdatePromptModal';
 import { LocketChatBox } from './components/LocketChatBox';
 import { ReactionModal } from './components/ReactionModal';
 import { AlarmSettingsModal } from './components/AlarmSettingsModal';
+import { DiagnosticModal } from './components/DiagnosticModal';
 import {
   Heart,
   Droplets,
@@ -22,7 +23,11 @@ import {
   Bell,
   BellRing,
   RefreshCw,
-  MessageCircle
+  MessageCircle,
+  MoreVertical,
+  Wrench,
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 import { api } from './services/api';
 import { IS_DEV_MODE } from './config';
@@ -66,6 +71,10 @@ export function App() {
   const [isAlarmSettingsOpen, setIsAlarmSettingsOpen] = useState(false);
   const [needsNotifPermission, setNeedsNotifPermission] = useState(false);
   const [chatSelectedCheckin, setChatSelectedCheckin] = useState(null);
+
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   // App version update detection
   const [hasNewUpdate, setHasNewUpdate] = useState(false);
@@ -150,6 +159,23 @@ export function App() {
     });
     return cleanup;
   }, [user?.id]);
+
+  // Click outside to close top-right menu hub
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMenuOpen]);
 
   // Clean, instantaneous update handler without needing to remove the app from Home Screen
   const handleApplyUpdate = async () => {
@@ -331,75 +357,199 @@ export function App() {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            {/* Install on iPhone button */}
-            <button
-              onClick={() => setIsGuideOpen(true)}
-              className="px-3 py-2 text-gray-700 bg-white hover:bg-gray-50 rounded-xl font-medium text-xs flex items-center gap-1.5 transition border border-gray-200 shadow-xs min-h-[40px] active:scale-95"
-              title="Cài app trên iPhone"
-            >
-              <Smartphone className="w-4 h-4 text-gray-600" />
-              <span className="hidden sm:inline">Cài lên iPhone</span>
-            </button>
-
+          {/* Action buttons (compact & future-proof) */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {user ? (
               <>
-                {/* Alarm Settings Header Button */}
-                <button
-                  onClick={() => setIsAlarmSettingsOpen(true)}
-                  className="w-10 h-10 flex items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition border border-rose-200/80 shadow-xs active:scale-95 shrink-0"
-                  title="Cài đặt Báo thức bắt buộc toàn màn hình"
-                >
-                  <BellRing className="w-4 h-4 text-rose-600" />
-                </button>
-
-                {/* Locket Chat Box Header Button */}
+                {/* 1. Locket Chat Box Header Button (Primary Shortcut) */}
                 <button
                   onClick={() => {
                     setIsChatBoxOpen(true);
                     setUnreadChatCount(0);
                   }}
-                  className="relative w-10 h-10 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition border border-rose-200/80 shadow-xs active:scale-95 shrink-0"
-                  title="Mở Chat Box Locket"
+                  className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-2xl transition border border-rose-100 shadow-2xs active:scale-95 shrink-0"
+                  title="Tin nhắn Locket"
                 >
-                  <MessageCircle className="w-5 h-5 fill-rose-500/20" />
+                  <MessageCircle className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-rose-500/20" />
                   {unreadChatCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
+                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-4.5 h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center shadow-md animate-pulse">
                       {unreadChatCount}
                     </span>
                   )}
                 </button>
 
-                {/* Switch Role Quick Button - ONLY IN DEV MODE */}
-                {IS_DEV_MODE && (
+                {/* 2. Quick Menu Hub Button (...) */}
+                <div className="relative" ref={menuRef}>
                   <button
-                    onClick={() => quickSwitch(isCaretaker ? 'lover' : 'caretaker')}
-                    className="px-2.5 py-2 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-200 transition text-[11px] font-semibold flex items-center gap-1 min-h-[40px] active:scale-95"
-                    title="[Dev Only] Chuyển vai"
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-2xl transition border active:scale-95 shrink-0 ${
+                      isMenuOpen
+                        ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                        : 'text-gray-700 bg-white hover:bg-gray-50 border-gray-200/80 shadow-2xs'
+                    }`}
+                    title="Menu tiện ích & Cài đặt"
                   >
-                    <Repeat className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{isCaretaker ? 'Dev: Em' : 'Dev: Anh'}</span>
+                    <MoreVertical className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                   </button>
-                )}
 
-                {/* Logout button with large touch target */}
-                <button
-                  onClick={logout}
-                  className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-rose-600 rounded-xl bg-gray-100 hover:bg-rose-50 transition active:scale-95 border border-gray-200/80"
-                  title="Đăng xuất"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+                  {/* Dropdown Popover */}
+                  {isMenuOpen && (
+                    <div className="absolute right-0 top-12 z-50 w-72 bg-white/95 backdrop-blur-xl border border-gray-100/90 rounded-3xl shadow-2xl p-2.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                      {/* User & Couple Status Card */}
+                      <div className="px-3 py-2.5 bg-gradient-to-br from-rose-50/70 to-pink-50/50 rounded-2xl border border-rose-100/60 mb-1">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                            {user.name ? user.name.charAt(0).toUpperCase() : (isCaretaker ? 'A' : 'E')}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-gray-900 truncate">
+                              {user.name || (isCaretaker ? 'Bạn trai' : 'Bạn gái')}
+                            </p>
+                            <p className="text-[10px] text-rose-600 font-semibold flex items-center gap-1 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+                              {isCoupleConnected ? 'Đã kết đôi hạnh phúc ❤️' : 'Chưa kết nối đôi'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section: Tiện ích hệ thống */}
+                      <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        Tiện ích hệ thống
+                      </p>
+
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsAlarmSettingsOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition group text-left"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <BellRing className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-800 block">Báo thức màn hình</span>
+                            <span className="text-[10px] text-gray-400">Chuông &amp; rung toàn màn hình</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsDiagnosticOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition group text-left"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <Wrench className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-800 block">Chẩn đoán &amp; Check lỗi</span>
+                            <span className="text-[10px] text-gray-400">Kiểm tra kết nối và ảnh</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsGuideOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition group text-left"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <Smartphone className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-800 block">Cài app lên iPhone</span>
+                            <span className="text-[10px] text-gray-400">Thêm vào Màn hình chính</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition" />
+                      </button>
+
+                      {/* Section: Sẵn sàng cho tính năng mới */}
+                      <div className="pt-1.5 pb-0.5">
+                        <p className="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                          Không gian tính năng mới
+                        </p>
+                        <div className="px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                              <Sparkles className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-semibold text-gray-700 block">Tính năng sắp tới</span>
+                              <span className="text-[10px] text-gray-400">Sẵn sàng mở rộng thêm</span>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[9px] font-bold">
+                            Sẵn sàng
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="h-px bg-gray-100 my-1" />
+
+                      {/* Dev Switch Role if enabled */}
+                      {IS_DEV_MODE && (
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            quickSwitch(isCaretaker ? 'lover' : 'caretaker');
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-amber-50 text-amber-800 transition text-left"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                            <Repeat className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold block">Đổi vai: {isCaretaker ? 'Bạn gái' : 'Bạn trai'}</span>
+                            <span className="text-[10px] text-amber-600/80">Dành riêng cho Dev</span>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Logout */}
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+                          <LogOut className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-semibold">Đăng xuất tài khoản</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
-              <div className="flex gap-1.5">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setIsGuideOpen(true)}
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 rounded-2xl border border-gray-200/80 shadow-2xs active:scale-95 transition"
+                  title="Cài app trên iPhone"
+                >
+                  <Smartphone className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => {
                     setAuthMode('login');
                     setIsAuthOpen(true);
                   }}
-                  className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-xs border border-gray-200 shadow-xs min-h-[40px] active:scale-95"
+                  className="px-3.5 py-1.5 sm:py-2 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-full text-xs border border-gray-200 shadow-2xs active:scale-95 transition"
                 >
                   Đăng nhập
                 </button>
@@ -408,7 +558,7 @@ export function App() {
                     setAuthMode('register');
                     setIsAuthOpen(true);
                   }}
-                  className="px-3.5 py-2 bg-gray-900 hover:bg-black text-white font-semibold rounded-xl text-xs min-h-[40px] active:scale-95 shadow-xs"
+                  className="px-3.5 py-1.5 sm:py-2 bg-gray-900 hover:bg-black text-white font-semibold rounded-full text-xs active:scale-95 shadow-xs transition"
                 >
                   Đăng ký
                 </button>
@@ -709,6 +859,12 @@ export function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         initialMode={authMode}
+      />
+
+      {/* Global Diagnostic & Sync Modal */}
+      <DiagnosticModal
+        isOpen={isDiagnosticOpen}
+        onClose={() => setIsDiagnosticOpen(false)}
       />
 
       {/* Floating Locket Chat Bubble at corner */}

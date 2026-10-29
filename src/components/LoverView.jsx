@@ -488,36 +488,44 @@ export const LoverView = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex gap-1.5 p-1 bg-gray-100 rounded-2xl mb-5">
+      <div className="flex gap-1 p-1 bg-slate-100/90 rounded-2xl mb-5 border border-slate-200/60 shadow-2xs">
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'tasks'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-gray-900 font-bold shadow-xs'
+              : 'text-slate-500 hover:text-gray-800 font-medium'
           }`}
         >
-          <Clock className="w-3.5 h-3.5" /> Lịch hôm nay ({reminders.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('setlog')}
-          className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 ${
-            activeTab === 'setlog'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5" /> Setlog ngày
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden xs:inline">Lịch hôm nay</span>
+          <span className="xs:hidden">Lịch</span>
+          <span className="text-[11px] opacity-80">({reminders.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('album')}
-          className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'album'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-gray-900 font-bold shadow-xs'
+              : 'text-slate-500 hover:text-gray-800 font-medium'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-rose-500" /> Khoảnh khắc hôm nay ({todayCheckins.length})
+          <Sparkles className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+          <span className="hidden xs:inline">Khoảnh khắc</span>
+          <span className="xs:hidden">Ảnh</span>
+          <span className="text-[11px] opacity-80">({todayCheckins.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('setlog')}
+          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === 'setlog'
+              ? 'bg-white text-gray-900 font-bold shadow-xs'
+              : 'text-slate-500 hover:text-gray-800 font-medium'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden xs:inline">Setlog ngày</span>
+          <span className="xs:hidden">Setlog</span>
         </button>
       </div>
 
@@ -525,11 +533,14 @@ export const LoverView = () => {
       {activeTab === 'tasks' && (
         <div className="space-y-4">
           {/* Live Realtime Tracker Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-white border border-gray-200/80 shadow-sm text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/80 shadow-xs text-xs">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="text-gray-500 font-medium">Bây giờ:</span>
-              <span className="font-mono font-bold text-gray-900 text-sm">{currentTimeFormatted}</span>
+              <span className="font-semibold text-gray-800 capitalize">{todayFormattedText}</span>
+              <span className="text-gray-300">•</span>
+              <span className="font-mono font-extrabold text-gray-900 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200/60 shadow-2xs">
+                {currentTimeFormatted}
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -539,22 +550,6 @@ export const LoverView = () => {
                   Đang ở khung giờ
                 </span>
               )}
-
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] border border-gray-200 flex items-center gap-1 active:scale-95 transition"
-                title="Cài đặt thông báo bắt buộc toàn màn hình"
-              >
-                <BellRing className="w-3.5 h-3.5 text-rose-500" /> Báo thức
-              </button>
-
-              <button
-                onClick={() => setIsDiagnosticOpen(true)}
-                className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] border border-rose-200 flex items-center gap-1 active:scale-95 transition"
-                title="Kiểm tra đồng bộ ảnh & lỗi hệ thống"
-              >
-                <Activity className="w-3.5 h-3.5 text-rose-500" /> Check lỗi
-              </button>
             </div>
           </div>
 
@@ -754,34 +749,32 @@ export const LoverView = () => {
                                   </div>
                                 </button>
                               ) : isExpired ? (
-                                <button
-                                  disabled
-                                  className="py-2.5 px-3.5 bg-gray-200 text-gray-400 font-bold text-xs rounded-xl cursor-not-allowed flex items-center gap-1.5"
+                                <span
+                                  className="py-1.5 px-3 bg-gray-100 text-gray-400 font-medium text-[11px] rounded-full border border-gray-200/50 flex items-center gap-1"
                                   title="Đã qua buổi, không thể chụp ảnh bù"
                                 >
-                                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                  <Clock className="w-3 h-3 text-gray-400" />
                                   <span>Đã qua buổi</span>
-                                </button>
+                                </span>
                               ) : isUpcoming ? (
-                                <button
-                                  disabled
-                                  className="py-2 px-3 bg-gray-100 text-gray-400 font-semibold text-xs rounded-xl border border-gray-200 cursor-not-allowed flex items-center gap-1.5 opacity-80"
+                                <span
+                                  className="py-1.5 px-3 bg-slate-100 text-slate-400 font-medium text-[11px] rounded-full border border-slate-200/60 flex items-center gap-1 opacity-80"
                                   title={`Chưa tới buổi (${sessionName}), sẽ mở lúc ${openTime}`}
                                 >
-                                  <Lock className="w-3.5 h-3.5 text-gray-400" />
+                                  <Lock className="w-3 h-3 text-slate-400" />
                                   <span>Chưa tới buổi</span>
-                                </button>
+                                </span>
                               ) : isCurrentSlot ? (
                                 <button
                                   onClick={() => handleOpenSnap(reminder)}
-                                  className="py-2.5 px-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-rose-500/30 flex items-center gap-1.5 active:scale-95 transition"
+                                  className="py-2 px-4 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-full font-bold text-xs shadow-md shadow-rose-500/25 flex items-center gap-1.5 active:scale-95 transition"
                                 >
                                   <Camera className="w-3.5 h-3.5" /> Chụp ngay
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => handleOpenSnap(reminder)}
-                                  className="py-2 px-3.5 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition"
+                                  className="py-2 px-3.5 bg-gray-900 hover:bg-black text-white rounded-full font-semibold text-xs shadow-xs flex items-center gap-1.5 active:scale-95 transition"
                                 >
                                   <Camera className="w-3.5 h-3.5" /> Chụp ảnh
                                 </button>

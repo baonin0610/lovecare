@@ -509,7 +509,7 @@ export const CaretakerView = () => {
           {/* Quick Buzz Button */}
           <button
             onClick={() => setIsNudgeOpen(true)}
-            className="py-2 px-3 sm:px-3.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 rounded-xl font-bold text-xs shadow-md shadow-rose-500/25 flex items-center gap-1.5 active:scale-95 transition shrink-0 self-start"
+            className="py-1.5 px-3.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 rounded-full font-bold text-xs shadow-md shadow-rose-500/25 flex items-center gap-1.5 active:scale-95 transition shrink-0 self-start"
           >
             <Bell className="w-3.5 h-3.5 fill-white" />
             <span className="hidden xs:inline">Nhắc nhở ngay</span>
@@ -562,7 +562,7 @@ export const CaretakerView = () => {
           </span>
           <button
             onClick={handleCopyCode}
-            className="text-gray-300 hover:text-white flex items-center gap-1 font-medium transition"
+            className="text-gray-300 hover:text-white flex items-center gap-1 font-medium transition px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 active:scale-95"
           >
             <Copy className="w-3.5 h-3.5" /> Sao chép mã
           </button>
@@ -570,36 +570,44 @@ export const CaretakerView = () => {
       </div>
 
       {/* Navigation Tabs for Caretaker */}
-      <div className="flex gap-1.5 p-1 bg-gray-100 rounded-2xl mb-5">
+      <div className="flex gap-1 p-1 bg-slate-100/90 rounded-2xl mb-5 border border-slate-200/60 shadow-2xs">
         <button
           onClick={() => setActiveTab('schedule')}
-          className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'schedule'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-gray-900 font-bold shadow-xs'
+              : 'text-slate-500 hover:text-gray-800 font-medium'
           }`}
         >
-          <Clock className="w-3.5 h-3.5" /> Lịch hôm nay ({reminders.length})
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden xs:inline">Lịch hôm nay</span>
+          <span className="xs:hidden">Lịch</span>
+          <span className="text-[11px] opacity-80">({reminders.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('feed')}
-          className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'feed'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-gray-900 font-bold shadow-xs'
+              : 'text-slate-500 hover:text-gray-800 font-medium'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-rose-500" /> Khoảnh khắc hôm nay ({todayCheckins.length})
+          <Sparkles className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+          <span className="hidden xs:inline">Khoảnh khắc</span>
+          <span className="xs:hidden">Ảnh</span>
+          <span className="text-[11px] opacity-80">({todayCheckins.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('setlog')}
-          className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'setlog'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-gray-900 font-bold shadow-xs'
+              : 'text-slate-500 hover:text-gray-800 font-medium'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5" /> Setlog từng ngày
+          <BookOpen className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden xs:inline">Setlog ngày</span>
+          <span className="xs:hidden">Setlog</span>
         </button>
       </div>
 
@@ -720,65 +728,51 @@ export const CaretakerView = () => {
       {/* TAB 1: Schedule Management Section (Lịch Hôm Nay) */}
       {activeTab === 'schedule' && (
         <>
-          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm mb-5">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs mb-5">
+            <div className="flex items-center justify-between mb-4 gap-2">
               <div>
                 <h3 className="font-bold text-gray-900 text-sm">
                   Lịch hôm nay của bạn gái
                 </h3>
-                <p className="text-xs text-gray-500">Các mốc giờ trong ngày và gửi thông báo nhắc nhở khi đến giờ</p>
+                <p className="text-xs text-gray-500">Các mốc giờ trong ngày và nhắc nhở</p>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsSweetCareOpen(true)}
-                  className="py-1.5 px-2.5 sm:px-3 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-xl font-semibold text-xs border border-pink-200/80 shadow-xs flex items-center gap-1 active:scale-95 transition"
+                  className="py-1.5 px-3 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-full font-semibold text-xs border border-pink-200/80 shadow-2xs flex items-center gap-1.5 active:scale-95 transition"
                   title="Gửi lời nhắc nhở sức khỏe hoặc động viên ngọt ngào"
                 >
-                  <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" /> Động viên
-                </button>
-
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="py-1.5 px-2.5 sm:px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-xs border border-gray-200/80 shadow-xs flex items-center gap-1 active:scale-95 transition"
-                  title="Cài đặt thông báo bắt buộc toàn màn hình"
-                >
-                  <BellRing className="w-3.5 h-3.5 text-rose-500" /> Báo thức
-                </button>
-
-                <button
-                  onClick={() => setIsDiagnosticOpen(true)}
-                  className="py-1.5 px-2.5 sm:px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-semibold text-xs border border-rose-200 shadow-xs flex items-center gap-1 active:scale-95 transition"
-                  title="Kiểm tra đồng bộ ảnh và lỗi hệ thống"
-                >
-                  <Activity className="w-3.5 h-3.5 text-rose-500" /> Check lỗi
+                  <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" />
+                  <span className="hidden xs:inline">Động viên</span>
                 </button>
 
                 <button
                   onClick={() => setIsAddOpen(true)}
-                  className="py-1.5 px-2.5 sm:px-3 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-xs flex items-center gap-1 active:scale-95 transition"
+                  className="py-1.5 px-3.5 bg-gray-900 hover:bg-black text-white rounded-full font-semibold text-xs shadow-xs flex items-center gap-1.5 active:scale-95 transition"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Thêm mốc giờ
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm mốc</span>
                 </button>
               </div>
             </div>
 
             {/* Live Clock Bar for Caretaker */}
-            <div className="flex flex-wrap items-center justify-between px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200/80 mb-3 text-xs gap-2">
+            <div className="flex flex-wrap items-center justify-between px-3.5 py-2.5 rounded-2xl bg-gray-50/90 border border-gray-200/70 mb-3 text-xs gap-2">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span className="font-semibold text-gray-800 capitalize">{todayFormattedText}</span>
                 <span className="text-gray-300">•</span>
-                <span className="font-mono font-extrabold text-gray-900 bg-white px-2 py-0.5 rounded-md border border-gray-200/60 shadow-xs">
+                <span className="font-mono font-extrabold text-gray-900 bg-white px-2 py-0.5 rounded-md border border-gray-200/60 shadow-2xs">
                   {currentTimeFormatted}
                 </span>
               </div>
-              <button
-                onClick={() => setIsDiagnosticOpen(true)}
-                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 hover:underline cursor-pointer"
-              >
-                <Activity className="w-3 h-3" /> Kiểm tra lỗi &amp; đồng bộ
-              </button>
+              {currentSlotReminderId && (
+                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                  Đang ở khung giờ
+                </span>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -974,35 +968,35 @@ export const CaretakerView = () => {
                                   {isCompleted ? (
                                     <button
                                       onClick={() => setSelectedCheckin(completedCheckin)}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold active:scale-95 transition"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-full text-xs font-semibold active:scale-95 transition"
                                       title="Xem ảnh & phản hồi"
                                     >
                                       <img
                                         src={completedCheckin.photoUrl}
                                         alt="Ảnh"
-                                        className="w-5 h-5 rounded-md object-cover border border-emerald-300"
+                                        className="w-4.5 h-4.5 rounded-full object-cover border border-emerald-300"
                                       />
                                       <span>Xem ảnh</span>
                                     </button>
                                   ) : isExpired ? (
-                                    <span className="px-3 py-1.5 bg-gray-200 text-gray-400 font-semibold text-xs rounded-xl flex items-center gap-1">
-                                      <Clock className="w-3.5 h-3.5" /> Đã quá giờ
+                                    <span className="px-3 py-1 bg-gray-100 text-gray-400 font-medium text-[11px] rounded-full flex items-center gap-1 border border-gray-200/50">
+                                      <Clock className="w-3 h-3" /> Đã quá giờ
                                     </span>
                                   ) : isUpcoming ? (
                                     <button
                                       onClick={() => handleQuickNudge(rem)}
                                       disabled={nudgingId === rem.id}
-                                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold text-xs rounded-xl border border-gray-200 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-full border border-slate-200/60 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
                                       title={`Nhắc nhở trước cho bạn gái: ${rem.title}`}
                                     >
-                                      <Bell className="w-3.5 h-3.5 text-gray-500" />
+                                      <Bell className="w-3.5 h-3.5 text-slate-500" />
                                       <span>{nudgingId === rem.id ? 'Đang gửi...' : 'Nhắc nhở'}</span>
                                     </button>
                                   ) : (
                                     <button
                                       onClick={() => handleQuickNudge(rem)}
                                       disabled={nudgingId === rem.id}
-                                      className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/20 flex items-center gap-1.5 transition disabled:opacity-50"
+                                      className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 active:scale-95 text-white font-bold text-xs rounded-full shadow-sm shadow-rose-500/25 flex items-center gap-1.5 transition disabled:opacity-50"
                                       title={`Bấm để gửi thông báo nhắc bạn gái: ${rem.title}`}
                                     >
                                       <Bell className="w-3.5 h-3.5 fill-white" />
@@ -1012,7 +1006,7 @@ export const CaretakerView = () => {
 
                                   <button
                                     onClick={() => handleDeleteReminder(rem.id)}
-                                    className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition"
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition active:scale-95"
                                     title="Xóa mốc nhắc này"
                                   >
                                     <Trash2 className="w-4 h-4" />

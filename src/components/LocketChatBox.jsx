@@ -262,7 +262,7 @@ export const LocketChatBox = ({
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-black/10 shrink-0 border border-black/10">
                           <img
                             src={msg.checkinPhotoUrl}
-                            alt="Bằng chứng"
+                            alt="Khoảnh khắc check-in"
                             className="w-full h-full object-cover"
                           />
                         </div>

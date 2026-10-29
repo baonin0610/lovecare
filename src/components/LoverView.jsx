@@ -20,7 +20,8 @@ import {
   ChevronDown,
   BellRing,
   Lock,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
@@ -52,6 +53,11 @@ export const LoverView = () => {
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+
+  // Filter checkins for TODAY only
+  const todayCheckins = useMemo(() => {
+    return (checkins || []).filter(isCheckinFromToday);
+  }, [checkins]);
 
   // Accordion state for schedule sections: only current session expanded by default
   const [expandedSessions, setExpandedSessions] = useState(() => {
@@ -501,7 +507,7 @@ export const LoverView = () => {
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          <ImageIcon className="w-3.5 h-3.5" /> Kho ảnh ({checkins.length})
+          <Sparkles className="w-3.5 h-3.5 text-rose-500" /> Khoảnh khắc hôm nay ({todayCheckins.length})
         </button>
       </div>
 
@@ -800,22 +806,51 @@ export const LoverView = () => {
         />
       )}
 
-      {/* TAB 3: Album & Timeline Feed */}
+      {/* TAB 3: Today's Moments (Khoảnh khắc của em hôm nay) */}
       {activeTab === 'album' && (
         <div className="space-y-4">
-          {checkins.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center">
-                <Camera className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div>
+              <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-rose-500" /> Khoảnh khắc của em hôm nay ({todayCheckins.length})
+              </h3>
+              <p className="text-xs text-gray-500">Những khoảnh khắc em đã hoàn thành trong ngày hôm nay ❤️</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('setlog')}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition"
+            >
+              Xem các ngày trước &gt;
+            </button>
+          </div>
+
+          {todayCheckins.length === 0 ? (
+            <div className="p-8 text-center bg-white rounded-3xl border border-gray-100 shadow-xs">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center shadow-xs">
+                <Sparkles className="w-7 h-7" />
               </div>
-              <h4 className="font-semibold text-gray-800 text-sm">Chưa có ảnh xác thực</h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Bấm vào các mốc nhắc nhở để chụp ảnh xác nhận nhé.
+              <h4 className="font-bold text-gray-800 text-sm">Chưa có khoảnh khắc nào hôm nay</h4>
+              <p className="text-xs text-gray-500 mt-1.5 max-w-sm mx-auto leading-relaxed">
+                Đã bước sang ngày mới! Hãy bắt đầu hoàn thành các mốc nhắc nhở để gửi ảnh cho anh xem nhé. Các ảnh ngày hôm qua đã được lưu an toàn trong <b>Setlog ngày</b>! 🥰
               </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => setActiveTab('tasks')}
+                  className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition"
+                >
+                  Xem lịch hôm nay
+                </button>
+                <button
+                  onClick={() => setActiveTab('setlog')}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold active:scale-95 transition"
+                >
+                  Xem ảnh các ngày trước
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {checkins.map((checkin) => (
+              {todayCheckins.map((checkin) => (
                 <div
                   key={checkin.id}
                   onClick={() => setSelectedCheckin(checkin)}

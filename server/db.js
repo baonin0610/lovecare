@@ -152,6 +152,7 @@ class Database {
           if (cloudData.couples && cloudData.couples.length > 0) this.data.couples = cloudData.couples;
           if (cloudData.reminders && cloudData.reminders.length > 0) this.data.reminders = cloudData.reminders;
           if (cloudData.checkins && cloudData.checkins.length > 0) this.data.checkins = cloudData.checkins;
+          if (cloudData.pushSubscriptions && cloudData.pushSubscriptions.length > 0) this.data.pushSubscriptions = cloudData.pushSubscriptions;
           this.save();
           console.log(`[Database] Cloud sync complete with Supabase: ${this.data.users.length} users, ${this.data.couples.length} couples, ${this.data.checkins.length} checkins restored.`);
         }
@@ -408,17 +409,20 @@ class Database {
   }
 
   // Push Subscriptions for Background & Lock Screen Notifications
-  addPushSubscription(userId, coupleId, subscription, userAgent = '') {
+  addPushSubscription(userId, coupleId, subscription, userAgent = '', role = '', userName = '') {
     if (!this.data.pushSubscriptions) this.data.pushSubscriptions = [];
     const endpoint = subscription.endpoint;
     const existingIndex = this.data.pushSubscriptions.findIndex(s => s.subscription?.endpoint === endpoint);
+    const existing = existingIndex !== -1 ? this.data.pushSubscriptions[existingIndex] : null;
 
     const subRecord = {
-      id: existingIndex !== -1 ? this.data.pushSubscriptions[existingIndex].id : `sub-${Date.now()}`,
-      userId,
-      coupleId,
+      id: existing ? existing.id : `sub-${Date.now()}`,
+      userId: userId || (existing ? existing.userId : null),
+      coupleId: coupleId || (existing ? existing.coupleId : null),
+      role: role || (existing ? existing.role : ''),
+      userName: userName || (existing ? existing.userName : ''),
       subscription,
-      userAgent,
+      userAgent: userAgent || (existing ? existing.userAgent : ''),
       updatedAt: new Date().toISOString()
     };
 
@@ -428,6 +432,7 @@ class Database {
       this.data.pushSubscriptions.push(subRecord);
     }
     this.save();
+    supabase.savePushSubscription(subRecord);
     return subRecord;
   }
 
@@ -437,6 +442,7 @@ class Database {
     this.data.pushSubscriptions = this.data.pushSubscriptions.filter(s => s.subscription?.endpoint !== endpoint);
     if (this.data.pushSubscriptions.length !== prevLen) {
       this.save();
+      supabase.deletePushSubscription(endpoint);
     }
   }
 

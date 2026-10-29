@@ -9,7 +9,16 @@ import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from './db.js';
 import { supabase, isSupabaseConfigured } from './supabase.js';
-import { VAPID_PUBLIC_KEY, sendPushToUser, sendPushToCouple } from './pushService.js';
+import {
+  VAPID_PUBLIC_KEY,
+  sendPushToUser,
+  sendPushToCouple,
+  sendPushToLover,
+  getLoverSubscriptions,
+  sendPushNotification,
+  SWEET_CARE_MESSAGES,
+  getRandomSweetCare
+} from './pushService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +51,19 @@ app.get('/api/health', (req, res) => {
 app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
+
+// Render free tier keep-alive: ping self every 8 minutes so the container never sleeps
+const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || 'https://lovecare-lo5w.onrender.com';
+if (RENDER_EXTERNAL_URL && !RENDER_EXTERNAL_URL.includes('localhost')) {
+  setInterval(async () => {
+    try {
+      const res = await fetch(`${RENDER_EXTERNAL_URL}/api/health`);
+      console.log(`[KeepAlive] Pinged ${RENDER_EXTERNAL_URL}/api/health -> status ${res.status}`);
+    } catch (e) {
+      console.warn('[KeepAlive] Ping error:', e.message);
+    }
+  }, 8 * 60 * 1000);
+}
 
 // Ensure uploads folder exists
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
@@ -456,13 +478,14 @@ app.put('/api/couple/target', (req, res) => {
 
 app.put('/api/couple/alarm-settings', (req, res) => {
   const coupleId = req.headers['x-couple-id'];
-  const { mandatoryAlarmEnabled, alarmSoundEnabled, vibrationEnabled } = req.body;
+  const { mandatoryAlarmEnabled, alarmSoundEnabled, vibrationEnabled, sweetCareNotifsEnabled } = req.body;
   const couple = db.findCoupleById(coupleId);
   if (!couple) return res.status(404).json({ error: 'Couple not found' });
 
-  couple.mandatoryAlarmEnabled = mandatoryAlarmEnabled !== undefined ? !!mandatoryAlarmEnabled : true;
-  couple.alarmSoundEnabled = alarmSoundEnabled !== undefined ? !!alarmSoundEnabled : true;
-  couple.vibrationEnabled = vibrationEnabled !== undefined ? !!vibrationEnabled : true;
+  if (mandatoryAlarmEnabled !== undefined) couple.mandatoryAlarmEnabled = !!mandatoryAlarmEnabled;
+  if (alarmSoundEnabled !== undefined) couple.alarmSoundEnabled = !!alarmSoundEnabled;
+  if (vibrationEnabled !== undefined) couple.vibrationEnabled = !!vibrationEnabled;
+  if (sweetCareNotifsEnabled !== undefined) couple.sweetCareNotifsEnabled = !!sweetCareNotifsEnabled;
 
   db.updateCouple(coupleId, couple);
   const enriched = enrichCouple(couple);
@@ -799,16 +822,62 @@ app.get('/api/push/vapid-key', (req, res) => {
   res.json({ publicKey: VAPID_PUBLIC_KEY });
 });
 
+app.get('/api/push/status', (req, res) => {
+  const coupleId = req.headers['x-couple-id'] || req.query.coupleId;
+  if (!coupleId) {
+    return res.json({ loverDeviceCount: 0, caretakerDeviceCount: 0, hasLoverDevice: false });
+  }
+
+  const couple = db.findCoupleById(coupleId);
+  const loverSubs = getLoverSubscriptions(coupleId, couple?.loverId);
+  const allSubs = db.data.pushSubscriptions || [];
+  const caretakerSubs = allSubs.filter(s => s.coupleId === coupleId && (s.role === 'caretaker' || s.userId === couple?.caretakerId));
+
+  res.json({
+    loverDeviceCount: loverSubs.length,
+    caretakerDeviceCount: caretakerSubs.length,
+    hasLoverDevice: loverSubs.length > 0,
+    sweetCareEnabled: couple ? couple.sweetCareNotifsEnabled !== false : true,
+    loverName: couple?.loverName || 'Bạn gái'
+  });
+});
+
 app.post('/api/push/subscribe', (req, res) => {
   const userId = req.headers['x-user-id'] || req.body.userId;
   const coupleId = req.headers['x-couple-id'] || req.body.coupleId;
+  const role = req.headers['x-user-role'] || req.body.role || '';
+  const userName = req.headers['x-user-name'] || req.body.userName || '';
   const { subscription } = req.body;
 
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: 'PushSubscription is required' });
   }
 
-  const sub = db.addPushSubscription(userId, coupleId, subscription, req.headers['user-agent'] || '');
+  // Auto attach role or partner if missing
+  if (coupleId) {
+    const couple = db.findCoupleById(coupleId);
+    if (couple) {
+      if (role === 'lover' && !couple.loverId && userId) {
+        couple.loverId = userId;
+        if (userName) couple.loverName = userName;
+        db.updateCouple(couple.id, couple);
+      } else if (role === 'caretaker' && !couple.caretakerId && userId) {
+        couple.caretakerId = userId;
+        if (userName) couple.caretakerName = userName;
+        db.updateCouple(couple.id, couple);
+      }
+    }
+  }
+
+  const sub = db.addPushSubscription(
+    userId,
+    coupleId,
+    subscription,
+    req.headers['user-agent'] || '',
+    role,
+    userName
+  );
+  console.log(`[Push] Registered subscription for user: ${userId || 'unknown'} (${role || 'no-role'}) in couple: ${coupleId || 'no-couple'}`);
   res.json({ success: true, subscription: sub });
 });
 
@@ -828,6 +897,104 @@ app.post('/api/push/test', async (req, res) => {
   });
 
   res.json({ success: true, result });
+});
+
+// Boyfriend triggers test push to girlfriend's iPhone
+app.post('/api/push/test-lover', async (req, res) => {
+  const coupleId = req.headers['x-couple-id'] || req.body.coupleId;
+  const couple = db.findCoupleById(coupleId);
+  if (!couple) return res.status(404).json({ error: 'Không tìm thấy cặp đôi' });
+
+  const loverSubs = getLoverSubscriptions(couple.id, couple.loverId);
+  if (loverSubs.length === 0) {
+    return res.json({
+      success: false,
+      deviceCount: 0,
+      message: 'Chưa có thiết bị nào của bạn gái đăng ký nhận thông báo. Bạn gái cần mở app từ Màn hình chính iPhone và bấm "Bật ngay".'
+    });
+  }
+
+  const loverName = couple.loverName || 'Bé yêu';
+  const payload = {
+    title: '❤️ LoveCare Test - Kiểm Tra Chuông',
+    body: `Chào ${loverName}! Bạn trai vừa gửi kiểm tra chuông báo thức. iPhone của bạn đã kết nối nhận thông báo ngầm thành công 100%! 🥰`,
+    tag: `test-lover-${Date.now()}`,
+    url: '/?forceAlarm=1'
+  };
+
+  const results = await Promise.allSettled(
+    loverSubs.map((s) => sendPushNotification(s.subscription, payload))
+  );
+
+  const successCount = results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
+  console.log(`[Push Test Lover] Sent test push to ${successCount}/${loverSubs.length} lover devices`);
+  res.json({
+    success: successCount > 0,
+    deviceCount: loverSubs.length,
+    successCount,
+    message: `Đã gửi chuông thử nghiệm tới ${successCount}/${loverSubs.length} máy của bạn gái!`
+  });
+});
+
+// Boyfriend or system sends sweet care / encouragement notification immediately
+app.post('/api/push/send-care', async (req, res) => {
+  const coupleId = req.headers['x-couple-id'] || req.body.coupleId;
+  const { title, message, category } = req.body;
+  const couple = db.findCoupleById(coupleId);
+  if (!couple) return res.status(404).json({ error: 'Không tìm thấy cặp đôi' });
+
+  const chosenCare = (!message && !title) ? getRandomSweetCare(category) : null;
+  const finalTitle = title || (chosenCare ? chosenCare.title : '💌 Lời Nhắn Từ Bạn Trai');
+  const finalBody = message || (chosenCare ? chosenCare.body : 'Bé yêu ơi, giữ gìn sức khỏe và luôn mỉm cười thật tươi nhé! Yêu em nhiều ❤️');
+
+  const now = new Date();
+  const vnTimeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
+
+  // 1. Dispatch Web Push to girlfriend's iPhone
+  const loverSubs = getLoverSubscriptions(couple.id, couple.loverId);
+  if (loverSubs.length > 0) {
+    Promise.allSettled(
+      loverSubs.map((s) => sendPushNotification(s.subscription, {
+        title: finalTitle,
+        body: finalBody,
+        tag: `care-${Date.now()}`,
+        url: '/?sweetCare=1'
+      }))
+    );
+  }
+
+  // 2. Broadcast via Socket.IO
+  const carePayload = {
+    title: finalTitle,
+    body: finalBody,
+    time: vnTimeStr,
+    senderName: couple.caretakerName || 'Anh Yêu',
+    category: category || (chosenCare ? chosenCare.category : 'mood')
+  };
+  io.to(`couple:${couple.id}`).emit('sweet_care_received', carePayload);
+  if (couple.loverId) {
+    io.to(`user:${couple.loverId}`).emit('sweet_care_received', carePayload);
+  }
+
+  // 3. Save to Chat Box so girlfriend can see it anytime in chat history
+  const chatMsg = db.addMessage({
+    id: uuidv4(),
+    coupleId: couple.id,
+    userId: couple.caretakerId || 'caretaker',
+    userName: couple.caretakerName || 'Anh Yêu',
+    role: 'caretaker',
+    text: `${finalTitle}\n${finalBody}`,
+    emoji: '💌',
+    time: vnTimeStr,
+    createdAt: new Date().toISOString()
+  });
+  io.to(`couple:${couple.id}`).emit('chat_message', chatMsg);
+
+  res.json({
+    success: true,
+    recipientCount: loverSubs.length,
+    care: carePayload
+  });
 });
 
 app.delete('/api/checkins/:id', (req, res) => {
@@ -994,40 +1161,114 @@ app.use((req, res, next) => {
   res.send('LoveCare API is running. Build frontend with `npm run build` or use Vite dev server.');
 });
 
-// ==================== AUTOMATED MINUTE SCHEDULER (ALARM DISPATCHER) ====================
-// Runs every 25 seconds to trigger alarms at exact scheduled times
+// ==================== AUTOMATED MINUTE SCHEDULER & SWEET CARE ENGINE ====================
+// Runs every 20 seconds to trigger alarms at exact scheduled times and dispatch caring notifications
 let lastTriggeredMinute = '';
+
+// Designated sweet care time slots throughout the day
+const SWEET_CARE_TIMES = ['09:30', '11:15', '14:15', '16:30', '20:45'];
+
+function normalizeTime(t) {
+  if (!t || typeof t !== 'string') return '';
+  const parts = t.trim().split(':');
+  if (parts.length < 2) return t.trim();
+  const h = parts[0].padStart(2, '0');
+  const m = parts[1].padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function determineTimeSlot(timeStr) {
+  const [h] = timeStr.split(':').map(Number);
+  if (h >= 5 && h < 12) return 'daytime';
+  if (h >= 12 && h < 18) return 'afternoon';
+  return 'evening';
+}
+
+function checkAndDispatchSweetCare(couple, currentNormTime, todayStr) {
+  if (!SWEET_CARE_TIMES.includes(currentNormTime)) return;
+
+  // Track dispatched sweet cares per couple per day to avoid duplicate sends
+  if (!couple.dispatchedSweetCare) couple.dispatchedSweetCare = {};
+  const todayDispatched = couple.dispatchedSweetCare[todayStr] || [];
+  if (todayDispatched.includes(currentNormTime)) return;
+
+  todayDispatched.push(currentNormTime);
+  couple.dispatchedSweetCare[todayStr] = todayDispatched;
+  db.updateCouple(couple.id, couple);
+
+  const slot = determineTimeSlot(currentNormTime);
+  const care = getRandomSweetCare(null, slot);
+  console.log(`[Sweet Care] Auto dispatching caring message at ${currentNormTime} for couple ${couple.code}: "${care.title}"`);
+
+  // 1. Send push to lover iPhone
+  sendPushToLover(couple.id, couple.loverId, {
+    title: care.title,
+    body: care.body,
+    tag: `care-${todayStr}-${currentNormTime}`,
+    url: '/?sweetCare=1'
+  });
+
+  // 2. Broadcast socket event
+  const carePayload = {
+    title: care.title,
+    body: care.body,
+    time: currentNormTime,
+    senderName: couple.caretakerName || 'Anh Yêu',
+    category: care.category
+  };
+  io.to(`couple:${couple.id}`).emit('sweet_care_received', carePayload);
+  if (couple.loverId) {
+    io.to(`user:${couple.loverId}`).emit('sweet_care_received', carePayload);
+  }
+
+  // 3. Save to chat box
+  const chatMsg = db.addMessage({
+    id: uuidv4(),
+    coupleId: couple.id,
+    userId: couple.caretakerId || 'caretaker',
+    userName: couple.caretakerName || 'Anh Yêu',
+    role: 'caretaker',
+    text: `${care.title}\n${care.body}`,
+    emoji: '💌',
+    time: currentNormTime,
+    createdAt: new Date().toISOString()
+  });
+  io.to(`couple:${couple.id}`).emit('chat_message', chatMsg);
+}
 
 setInterval(() => {
   const now = new Date();
   const vnTimeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
   const todayStr = getTodayString();
+  const currentNormTime = normalizeTime(vnTimeStr);
 
-  if (vnTimeStr === lastTriggeredMinute) return;
-  lastTriggeredMinute = vnTimeStr;
+  if (currentNormTime === lastTriggeredMinute) return;
+  lastTriggeredMinute = currentNormTime;
 
   const couples = db.data.couples || [];
   couples.forEach((couple) => {
+    // 1. Check Reminders for Lịch Hôm Nay
     const reminders = db.getReminders(couple.id);
     reminders.forEach((rem) => {
-      if (rem.enabled && rem.time === vnTimeStr) {
+      const remNormTime = normalizeTime(rem.time);
+      if (rem.enabled && remNormTime === currentNormTime) {
         const checkins = db.getCheckins(couple.id, todayStr);
         const alreadyDone = checkins.some((c) => c.reminderId === rem.id);
 
         if (!alreadyDone) {
-          console.log(`[Alarm Trigger] Dispatching alarm for couple ${couple.code} at ${vnTimeStr}: ${rem.title}`);
+          console.log(`[Alarm Trigger] Dispatching alarm for couple ${couple.code} at ${currentNormTime}: ${rem.title}`);
           const defaultMsg = rem.type === 'water'
             ? `💧 Đến giờ uống ${rem.waterAmountMl || 250}ml nước rồi! Vào chụp ảnh xác thực cho bạn trai nhé.`
             : `🍱 Đến giờ ăn uống rồi! Vào chụp ảnh bữa ăn cho bạn trai xem nhé.`;
 
           const isMandatory = rem.mandatory !== false && couple.mandatoryAlarmEnabled !== false;
           const notifTitle = isMandatory
-            ? `🚨 [BÁO THỨC] ${rem.title} (${vnTimeStr})`
-            : `⏰ Đến giờ: ${rem.title} (${vnTimeStr})`;
+            ? `🚨 [BÁO THỨC] ${rem.title} (${currentNormTime})`
+            : `⏰ Đến giờ: ${rem.title} (${currentNormTime})`;
 
           const payload = {
             reminder: rem,
-            time: vnTimeStr,
+            time: currentNormTime,
             message: rem.message || defaultMsg,
             mandatory: isMandatory
           };
@@ -1035,20 +1276,26 @@ setInterval(() => {
           io.to(`couple:${couple.id}`).emit('alarm_trigger', payload);
           if (couple.loverId) {
             io.to(`user:${couple.loverId}`).emit('alarm_trigger', payload);
-            // Send native lock-screen push notification to girlfriend's iPhone
-            sendPushToUser(couple.loverId, {
-              title: notifTitle,
-              body: defaultMsg,
-              tag: `alarm-${rem.id}-${vnTimeStr}`,
-              url: `/?alarmId=${rem.id}&time=${vnTimeStr}&forceAlarm=1`,
-              alarmId: rem.id
-            });
           }
+
+          // Send native lock-screen push notification to all girlfriend devices
+          sendPushToLover(couple.id, couple.loverId, {
+            title: notifTitle,
+            body: rem.message || defaultMsg,
+            tag: `alarm-${rem.id}-${todayStr}-${currentNormTime}`,
+            url: `/?alarmId=${rem.id}&time=${currentNormTime}&forceAlarm=1`,
+            alarmId: rem.id
+          });
         }
       }
     });
+
+    // 2. Automated Health & Encouraging Sweet Care Notifications
+    if (couple.sweetCareNotifsEnabled !== false) {
+      checkAndDispatchSweetCare(couple, currentNormTime, todayStr);
+    }
   });
-}, 25000);
+}, 20000);
 
 // Start server after ensuring Supabase cloud data is completely restored
 async function startServer() {

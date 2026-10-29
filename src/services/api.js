@@ -178,5 +178,39 @@ export const api = {
       body: JSON.stringify(data)
     });
     return res.json();
+  },
+
+  // Push Notifications Status & Lover Testing
+  async getPushStatus(user, couple) {
+    if (!couple?.id) return { hasLoverDevice: false, loverDeviceCount: 0 };
+    try {
+      const res = await fetch('/api/push/status', {
+        headers: getHeaders(user, couple)
+      });
+      return await res.json();
+    } catch (e) {
+      return { hasLoverDevice: false, loverDeviceCount: 0 };
+    }
+  },
+
+  async testLoverPush(user, couple) {
+    if (!couple?.id) return { success: false, message: 'Chưa có thông tin cặp đôi' };
+    const res = await fetch('/api/push/test-lover', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify({ coupleId: couple.id })
+    });
+    return res.json();
+  },
+
+  // Sweet Health & Encouragement Care Notifications
+  async sendSweetCare(user, couple, { title, message, category } = {}) {
+    if (!couple?.id) return { success: false, message: 'Chưa có thông tin cặp đôi' };
+    const res = await fetch('/api/push/send-care', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify({ coupleId: couple.id, title, message, category })
+    });
+    return res.json();
   }
 };

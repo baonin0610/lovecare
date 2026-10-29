@@ -25,6 +25,7 @@ import { AddReminderModal } from './AddReminderModal';
 import { ReactionModal } from './ReactionModal';
 import { DailySetlogView } from './DailySetlogView';
 import { AlarmSettingsModal } from './AlarmSettingsModal';
+import { SweetCareModal } from './SweetCareModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
@@ -37,6 +38,7 @@ export const CaretakerView = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSweetCareOpen, setIsSweetCareOpen] = useState(false);
 
   // Accordion state for schedule sections: only current session expanded by default
   const [expandedSessions, setExpandedSessions] = useState(() => {
@@ -618,10 +620,18 @@ export const CaretakerView = () => {
                 <p className="text-xs text-gray-500">Theo dõi các mốc giờ và gửi nhắc nhở giục bạn gái chụp ảnh</p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                <button
+                  onClick={() => setIsSweetCareOpen(true)}
+                  className="py-1.5 px-2.5 sm:px-3 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-xl font-semibold text-xs border border-pink-200/80 shadow-xs flex items-center gap-1 active:scale-95 transition"
+                  title="Gửi lời nhắc nhở sức khỏe hoặc động viên ngọt ngào"
+                >
+                  <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" /> Động viên
+                </button>
+
                 <button
                   onClick={() => setIsSettingsOpen(true)}
-                  className="py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-xs border border-gray-200/80 shadow-sm flex items-center gap-1 active:scale-95 transition"
+                  className="py-1.5 px-2.5 sm:px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-xs border border-gray-200/80 shadow-xs flex items-center gap-1 active:scale-95 transition"
                   title="Cài đặt thông báo bắt buộc toàn màn hình"
                 >
                   <BellRing className="w-3.5 h-3.5 text-rose-500" /> Báo thức
@@ -629,7 +639,7 @@ export const CaretakerView = () => {
 
                 <button
                   onClick={() => setIsAddOpen(true)}
-                  className="py-1.5 px-3 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-sm flex items-center gap-1 active:scale-95 transition"
+                  className="py-1.5 px-2.5 sm:px-3 bg-gray-900 hover:bg-black text-white rounded-xl font-semibold text-xs shadow-xs flex items-center gap-1 active:scale-95 transition"
                 >
                   <Plus className="w-3.5 h-3.5" /> Thêm mốc giờ
                 </button>
@@ -984,6 +994,13 @@ export const CaretakerView = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onTestAlarm={testAlarm}
+        onOpenSweetCare={() => setIsSweetCareOpen(true)}
+      />
+
+      {/* Sweet Care & Encouragement Modal */}
+      <SweetCareModal
+        isOpen={isSweetCareOpen}
+        onClose={() => setIsSweetCareOpen(false)}
       />
     </div>
   );

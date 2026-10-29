@@ -74,11 +74,19 @@ export async function subscribePushNotifications(user, couple) {
     const headers = { 'Content-Type': 'application/json' };
     if (user?.id) headers['x-user-id'] = user.id;
     if (couple?.id) headers['x-couple-id'] = couple.id;
+    if (user?.role) headers['x-user-role'] = user.role;
+    if (user?.name) headers['x-user-name'] = encodeURIComponent(user.name);
 
     const res = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ subscription })
+      body: JSON.stringify({
+        subscription,
+        userId: user?.id,
+        coupleId: couple?.id,
+        role: user?.role,
+        userName: user?.name
+      })
     });
 
     const data = await res.json();

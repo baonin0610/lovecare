@@ -77,15 +77,16 @@ export const supabase = {
         return [];
       };
 
-      const [users, couples, reminders, checkins, nudges] = await Promise.all([
+      const [users, couples, reminders, checkins, nudges, pushSubs] = await Promise.all([
         fetchTable('users'),
         fetchTable('couples'),
         fetchTable('reminders'),
         fetchTable('checkins'),
-        fetchTable('nudges')
+        fetchTable('nudges'),
+        fetchTable('push_subscriptions').catch(() => [])
       ]);
 
-      console.log(`[Supabase DB] Loaded from cloud: ${users.length} users, ${couples.length} couples, ${reminders.length} reminders, ${checkins.length} checkins`);
+      console.log(`[Supabase DB] Loaded from cloud: ${users.length} users, ${couples.length} couples, ${reminders.length} reminders, ${checkins.length} checkins, ${Array.isArray(pushSubs) ? pushSubs.length : 0} push subscriptions`);
 
       // Transform snake_case from DB into camelCase used by frontend
       const camelUsers = users.map(u => ({
@@ -145,7 +146,17 @@ export const supabase = {
         couples: camelCouples,
         reminders: camelReminders,
         checkins: camelCheckins,
-        nudges: nudges || []
+        nudges: nudges || [],
+        pushSubscriptions: Array.isArray(pushSubs) ? pushSubs.map(s => ({
+          id: s.id,
+          userId: s.user_id,
+          coupleId: s.couple_id,
+          role: s.role || '',
+          userName: s.user_name || '',
+          subscription: s.subscription,
+          userAgent: s.user_agent || '',
+          updatedAt: s.updated_at
+        })) : []
       };
     } catch (err) {
       console.warn('[Supabase DB] Startup load failed:', err.message);
@@ -386,6 +397,44 @@ export const supabase = {
       });
     } catch (e) {
       // non-fatal if table not yet created in Supabase
+    }
+  },
+
+  async savePushSubscription(sub) {
+    if (!isSupabaseConfigured() || !sub?.subscription?.endpoint) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`, {
+        method: 'POST',
+        headers: {
+          ...getHeaders(),
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          id: ensureUuid(sub.id) || sub.id,
+          user_id: sub.userId || null,
+          couple_id: ensureUuid(sub.coupleId) || sub.coupleId || null,
+          endpoint: sub.subscription.endpoint,
+          role: sub.role || null,
+          user_name: sub.userName || null,
+          subscription: sub.subscription,
+          user_agent: sub.userAgent || null,
+          updated_at: sub.updatedAt || new Date().toISOString()
+        })
+      });
+    } catch (e) {
+      // non-fatal if table not yet created
+    }
+  },
+
+  async deletePushSubscription(endpoint) {
+    if (!isSupabaseConfigured() || !endpoint) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+    } catch (e) {
+      // non-fatal
     }
   }
 };

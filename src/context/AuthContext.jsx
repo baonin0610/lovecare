@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [activeNudge, setActiveNudge] = useState(null);
   const [activeAlarm, setActiveAlarm] = useState(null);
+  const [activeSweetCare, setActiveSweetCare] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Locket Chat Box state
@@ -163,6 +164,14 @@ export const AuthProvider = ({ children }) => {
       sounds.playSuccess();
     });
 
+    s.on('sweet_care_received', (care) => {
+      if (user?.role === 'lover') {
+        setActiveSweetCare(care);
+        sounds.playWaterDrop();
+        alarm.sendPhoneNotification(care.title || '💌 Lời Nhắn Yêu Thương', care.body, `care-${Date.now()}`);
+      }
+    });
+
     setSocket(s);
 
     return () => {
@@ -234,9 +243,13 @@ export const AuthProvider = ({ children }) => {
       const urlParams = new URLSearchParams(window.location.search);
       const alarmId = urlParams.get('alarmId');
       const forceAlarm = urlParams.get('forceAlarm');
+      const sweetCare = urlParams.get('sweetCare');
       const timeParam = urlParams.get('time') || '';
 
-      if (alarmId || forceAlarm) {
+      if (sweetCare) {
+        setIsChatBoxOpen(true);
+        window.history.replaceState({}, '', '/');
+      } else if (alarmId || forceAlarm) {
         const savedUser = JSON.parse(localStorage.getItem('lovecare_user') || 'null');
         if (savedUser && savedUser.role === 'lover') {
           testAlarm({
@@ -281,6 +294,8 @@ export const AuthProvider = ({ children }) => {
         setActiveNudge,
         activeAlarm,
         setActiveAlarm,
+        activeSweetCare,
+        setActiveSweetCare,
         dismissAlarm,
         testAlarm,
         toastMessage,

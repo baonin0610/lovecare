@@ -44,6 +44,8 @@ export function App() {
     activeNudge,
     setActiveNudge,
     activeAlarm,
+    activeSweetCare,
+    setActiveSweetCare,
     dismissAlarm,
     testAlarm,
     toastMessage,
@@ -195,9 +197,17 @@ export function App() {
                   headers: {
                     'Content-Type': 'application/json',
                     'x-user-id': user.id,
-                    'x-couple-id': couple?.id
+                    'x-couple-id': couple?.id,
+                    'x-user-role': user.role || '',
+                    'x-user-name': encodeURIComponent(user.name || '')
                   },
-                  body: JSON.stringify({ subscription: sub })
+                  body: JSON.stringify({
+                    subscription: sub,
+                    userId: user.id,
+                    coupleId: couple?.id,
+                    role: user.role,
+                    userName: user.name
+                  })
                 }).catch(() => {});
               } else {
                 setPushStatus('needs_permission');
@@ -627,6 +637,56 @@ export function App() {
         }}
         onComplete={handleCompleteCheckinFromNudge}
       />
+
+      {/* Sweet Care & Encouragement Received Popup for Lover */}
+      {activeSweetCare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-rose-100 text-center relative animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-rose-500 to-pink-400 text-white flex items-center justify-center mx-auto mb-3.5 shadow-lg shadow-rose-500/30 animate-bounce">
+              <Heart className="w-7 h-7 fill-white" />
+            </div>
+
+            <span className="px-3 py-1 rounded-full bg-pink-100 text-pink-700 font-bold text-[10px] uppercase tracking-wider inline-block mb-2">
+              {activeSweetCare.senderName || 'Bạn trai'} gửi bạn
+            </span>
+
+            <h3 className="text-base font-bold text-gray-900 mb-2">
+              {activeSweetCare.title || '💌 Lời Nhắn Yêu Thương'}
+            </h3>
+
+            <p className="text-xs text-gray-600 leading-relaxed bg-pink-50/60 p-3.5 rounded-2xl border border-pink-200/60 mb-5">
+              {activeSweetCare.body}
+            </p>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await api.sendMessage(user, couple, {
+                      text: 'Dạ em cảm ơn anh yêu nhiều nha! Em sẽ chú ý chăm sóc bản thân ❤️🥰',
+                      emoji: '❤️'
+                    });
+                    showToast('Đã gửi phản hồi tới bạn trai ❤️');
+                  } catch (e) {}
+                  setActiveSweetCare(null);
+                }}
+                className="w-full py-3 px-4 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-bold text-xs rounded-2xl shadow-md shadow-rose-500/20 active:scale-95 transition"
+              >
+                Cảm ơn anh yêu ❤️
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSweetCare(null)}
+                className="w-full py-2.5 text-gray-400 hover:text-gray-600 text-xs font-semibold"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PWA Install Guide Modal */}
       <PwaInstallGuide

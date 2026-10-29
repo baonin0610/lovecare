@@ -33,6 +33,7 @@ import {
   isIosDevice,
   isStandalonePwa
 } from './services/push';
+import { initLifecycleKeepAlive } from './services/backgroundKeepAlive';
 
 export function App() {
   const {
@@ -140,6 +141,15 @@ export function App() {
       window.removeEventListener('focus', checkForUpdates);
     };
   }, [socket]);
+
+  // Keep background session active and auto-reconnect on phone unlock
+  useEffect(() => {
+    if (!user) return;
+    const cleanup = initLifecycleKeepAlive(() => {
+      checkForUpdates();
+    });
+    return cleanup;
+  }, [user?.id]);
 
   // Clean, instantaneous update handler without needing to remove the app from Home Screen
   const handleApplyUpdate = async () => {
@@ -471,10 +481,10 @@ export function App() {
 
         {/* Banner 3: If already subscribed, provide a small test button if user wants to verify */}
         {pushStatus === 'subscribed' && user && (
-          <div className="mb-3 px-3 py-1.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between text-[11px] text-emerald-800">
+          <div className="mb-3 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 flex items-center justify-between text-[11px] text-emerald-900 shadow-xs">
             <span className="flex items-center gap-1.5 font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span>Đã bật thông báo ngầm & khoá màn hình</span>
+              <span>Chạy ngầm 24/7: Khóa máy hay tắt app vẫn reo đúng giờ</span>
             </span>
             <div className="flex items-center gap-2.5">
               <button

@@ -125,3 +125,36 @@ export async function testPushNotification(user) {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Unsubscribe Web Push on device and notify server on logout
+ */
+export async function unsubscribePushNotifications(user, couple) {
+  if (!isPushSupported()) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg.pushManager) {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        // 1. Notify server to remove this subscription from database
+        await fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            userId: user?.id,
+            coupleId: couple?.id
+          })
+        }).catch(() => {});
+
+        // 2. Unsubscribe browser PushManager
+        await sub.unsubscribe().catch(() => {});
+        console.log('[Push] Successfully unsubscribed push notification on logout.');
+        return true;
+      }
+    }
+  } catch (e) {
+    console.warn('[Push] Error during unsubscribe on logout:', e);
+  }
+  return false;
+}

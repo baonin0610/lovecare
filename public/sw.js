@@ -66,13 +66,14 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const notifTag = payload.tag || `lovecare-${Date.now()}`;
   const options = {
     body: payload.body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [600, 200, 600, 200, 600, 400],
-    tag: payload.tag || 'lovecare-alarm',
-    renotify: true,
+    tag: notifTag,
+    renotify: false, // Prevents duplicate buzzed banners with same tag
     requireInteraction: true,
     data: {
       url: payload.url || `/?forceAlarm=1&t=${Date.now()}`,
@@ -82,7 +83,21 @@ self.addEventListener('push', (event) => {
     }
   };
 
-  event.waitUntil(self.registration.showNotification(payload.title, options));
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Check if user is actively in the app with screen focused and visible
+      const isForegroundFocused = clientList.some(c => c.focused && c.visibilityState === 'visible');
+      if (isForegroundFocused) {
+        // App is already open right in front of user -> postMessage to trigger in-app alarm without duplicate OS banner
+        clientList.forEach(c => {
+          c.postMessage({ type: 'TRIGGER_MANDATORY_ALARM', payload });
+        });
+        return;
+      }
+      // If phone is locked, app is closed or minimized -> show native OS lock-screen notification!
+      return self.registration.showNotification(payload.title, options);
+    })
+  );
 });
 
 // Handle notification tap / click -> open or focus the LoveCare PWA and trigger full screen alarm

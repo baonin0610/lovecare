@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { sounds } from '../services/audio';
 import { alarm } from '../services/alarm';
+import { unsubscribePushNotifications } from '../services/push';
 
 const AuthContext = createContext(null);
 
@@ -101,7 +102,10 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        alarm.sendPhoneNotification(notifTitle, notifBody, `alarm-${reminder.id}-${remTime}`);
+        // Only trigger phone OS lock screen notification if app is hidden in background
+        if (typeof document !== 'undefined' && document.hidden) {
+          alarm.sendPhoneNotification(notifTitle, notifBody, `alarm-${reminder.id}-${remTime}`);
+        }
       }
     });
 
@@ -111,13 +115,16 @@ export const AuthProvider = ({ children }) => {
         alarm.startVibrationLoop();
         sounds.playNudge();
 
-        const sender = nudge.senderName || 'Bạn trai';
-        const notifTitle = nudge.reminderTitle 
-          ? `🔔 ${sender} nhắc: ${nudge.reminderTitle}`
-          : `🔔 Nhắc nhở từ ${sender}`;
-        const notifBody = nudge.message || 'Mau chụp ảnh xác thực gửi bạn trai kiểm tra nhé! ❤️';
+        // Only trigger phone OS lock screen notification if app is hidden in background
+        if (typeof document !== 'undefined' && document.hidden) {
+          const sender = nudge.senderName || 'Bạn trai';
+          const notifTitle = nudge.reminderTitle 
+            ? `🔔 ${sender} nhắc: ${nudge.reminderTitle}`
+            : `🔔 Nhắc nhở từ ${sender}`;
+          const notifBody = nudge.message || 'Mau chụp ảnh xác thực gửi bạn trai kiểm tra nhé! ❤️';
 
-        alarm.sendPhoneNotification(notifTitle, notifBody, `nudge-${nudge.id}`);
+          alarm.sendPhoneNotification(notifTitle, notifBody, `nudge-${nudge.id}`);
+        }
       }
     });
 
@@ -168,7 +175,9 @@ export const AuthProvider = ({ children }) => {
       if (user?.role === 'lover') {
         setActiveSweetCare(care);
         sounds.playWaterDrop();
-        alarm.sendPhoneNotification(care.title || '💌 Lời Nhắn Yêu Thương', care.body, `care-${Date.now()}`);
+        if (typeof document !== 'undefined' && document.hidden) {
+          alarm.sendPhoneNotification(care.title || '💌 Lời Nhắn Yêu Thương', care.body, `care-${Date.now()}`);
+        }
       }
     });
 
@@ -188,15 +197,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // 1. Unsubscribe push on this device and remove from server database
+      await unsubscribePushNotifications(user, couple);
+    } catch (e) {
+      console.warn('Error unsubscribing push on logout:', e);
+    }
+
+    // 2. Leave socket rooms
+    if (socket) {
+      if (couple?.id) socket.emit('leave_couple', couple.id);
+      if (user?.id) socket.emit('leave_user', user.id);
+    }
+
+    // 3. Clear auth state and storage
     setUser(null);
     setCouple(null);
     localStorage.removeItem('lovecare_user');
     localStorage.removeItem('lovecare_couple');
+    showToast('Đã đăng xuất và tắt thông báo tài khoản trên thiết bị này.');
   };
 
   const quickSwitch = async (role) => {
     try {
+      // Unsubscribe push of previous user role before switching
+      await unsubscribePushNotifications(user, couple);
       const res = await fetch('/api/auth/quick-switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

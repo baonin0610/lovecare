@@ -156,6 +156,18 @@ io.on('connection', (socket) => {
     console.log(`[Socket] Socket ${socket.id} joined user:${userId}`);
   });
 
+  socket.on('leave_couple', (coupleId) => {
+    if (!coupleId) return;
+    socket.leave(`couple:${coupleId}`);
+    console.log(`[Socket] Socket ${socket.id} left couple:${coupleId}`);
+  });
+
+  socket.on('leave_user', (userId) => {
+    if (!userId) return;
+    socket.leave(`user:${userId}`);
+    console.log(`[Socket] Socket ${socket.id} left user:${userId}`);
+  });
+
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
   });
@@ -632,17 +644,15 @@ app.post('/api/checkins', upload.single('photo'), async (req, res) => {
 
   const saved = db.addCheckin(checkinData);
 
-  // Broadcast to couple in real-time
+  // Broadcast to couple in real-time (both users are in couple room)
   io.to(`couple:${coupleId}`).emit('new_checkin', saved);
   const targetCouple = db.findCoupleById(coupleId);
   if (targetCouple) {
-    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('new_checkin', saved);
-    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('new_checkin', saved);
-
-    // Push notification to boyfriend even if app is closed or locked on iPhone
-    if (targetCouple.caretakerId && targetCouple.caretakerId !== userId) {
-      sendPushToUser(targetCouple.caretakerId, {
-        title: `📸 Bạn gái vừa gửi ảnh: ${saved.title}`,
+    // Push notification to partner's lock screen even if app is closed or locked on iPhone
+    const recipientId = userId === targetCouple.caretakerId ? targetCouple.loverId : targetCouple.caretakerId;
+    if (recipientId) {
+      sendPushToUser(recipientId, {
+        title: `📸 ${saved.userName} vừa gửi ảnh: ${saved.title}`,
         body: `${saved.userName} vừa hoàn thành lúc ${saved.time}. Chạm để xem ảnh và phản hồi ngay!`,
         tag: `checkin-${saved.id}`,
         url: '/'
@@ -708,15 +718,6 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
 
   const targetCouple = db.findCoupleById(coupleId);
   if (targetCouple) {
-    if (targetCouple.caretakerId) {
-      io.to(`user:${targetCouple.caretakerId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
-      io.to(`user:${targetCouple.caretakerId}`).emit('chat_message', messageData);
-    }
-    if (targetCouple.loverId) {
-      io.to(`user:${targetCouple.loverId}`).emit('checkin_reaction', { checkinId: id, reaction, checkin: updatedCheckin });
-      io.to(`user:${targetCouple.loverId}`).emit('chat_message', messageData);
-    }
-
     // Send Web Push notification to partner's lock screen
     const recipientId = userId === targetCouple.caretakerId ? targetCouple.loverId : targetCouple.caretakerId;
     if (recipientId) {
@@ -799,9 +800,6 @@ app.post('/api/messages', (req, res) => {
   io.to(`couple:${coupleId}`).emit('chat_message', messageData);
   const targetCouple = db.findCoupleById(coupleId);
   if (targetCouple) {
-    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('chat_message', messageData);
-    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('chat_message', messageData);
-
     // Send Web Push notification to partner's phone lock screen
     const recipientId = userId === targetCouple.caretakerId ? targetCouple.loverId : targetCouple.caretakerId;
     if (recipientId) {
@@ -879,6 +877,30 @@ app.post('/api/push/subscribe', (req, res) => {
   );
   console.log(`[Push] Registered subscription for user: ${userId || 'unknown'} (${role || 'no-role'}) in couple: ${coupleId || 'no-couple'}`);
   res.json({ success: true, subscription: sub });
+});
+
+app.post('/api/push/unsubscribe', (req, res) => {
+  const { endpoint, userId } = req.body;
+  const endpointToClean = endpoint || req.headers['x-push-endpoint'];
+
+  if (endpointToClean) {
+    console.log(`[Push] Removing subscription on logout: ${endpointToClean.slice(0, 45)}...`);
+    db.removePushSubscription(endpointToClean);
+    supabase.deletePushSubscription(endpointToClean);
+  } else if (userId) {
+    console.log(`[Push] Removing subscriptions for user on logout: ${userId}`);
+    if (db.data.pushSubscriptions) {
+      const matching = db.data.pushSubscriptions.filter(s => s.userId === userId);
+      matching.forEach(m => {
+        if (m.subscription?.endpoint) {
+          db.removePushSubscription(m.subscription.endpoint);
+          supabase.deletePushSubscription(m.subscription.endpoint);
+        }
+      });
+    }
+  }
+
+  res.json({ success: true, message: 'Unsubscribed push on device' });
 });
 
 app.post('/api/push/test', async (req, res) => {
@@ -972,9 +994,6 @@ app.post('/api/push/send-care', async (req, res) => {
     category: category || (chosenCare ? chosenCare.category : 'mood')
   };
   io.to(`couple:${couple.id}`).emit('sweet_care_received', carePayload);
-  if (couple.loverId) {
-    io.to(`user:${couple.loverId}`).emit('sweet_care_received', carePayload);
-  }
 
   // 3. Save to Chat Box so girlfriend can see it anytime in chat history
   const chatMsg = db.addMessage({
@@ -1049,18 +1068,13 @@ app.post('/api/nudge', (req, res) => {
 
   const targetCouple = db.findCoupleById(coupleId);
   if (targetCouple) {
-    if (targetCouple.loverId) io.to(`user:${targetCouple.loverId}`).emit('nudge_alert', nudgeData);
-    if (targetCouple.caretakerId) io.to(`user:${targetCouple.caretakerId}`).emit('nudge_alert', nudgeData);
-
     // Send Web Push notification to girlfriend's iPhone lock screen
-    if (targetCouple.loverId) {
-      sendPushToUser(targetCouple.loverId, {
-        title: nudgeData.reminderTitle ? `🔔 ${nudgeData.senderName} nhắc: ${nudgeData.reminderTitle}` : `🔔 Nhắc nhở từ ${nudgeData.senderName}`,
-        body: nudgeData.message,
-        tag: `nudge-${nudgeData.id}`,
-        url: `/?nudgeId=${nudgeData.id}&urgent=1`
-      });
-    }
+    sendPushToLover(coupleId, targetCouple.loverId, {
+      title: nudgeData.reminderTitle ? `🔔 ${nudgeData.senderName} nhắc: ${nudgeData.reminderTitle}` : `🔔 Nhắc nhở từ ${nudgeData.senderName}`,
+      body: nudgeData.message,
+      tag: `nudge-${nudgeData.id}`,
+      url: `/?nudgeId=${nudgeData.id}&urgent=1`
+    });
   }
 
   res.json({ success: true, nudge: nudgeData });
@@ -1217,9 +1231,6 @@ function checkAndDispatchSweetCare(couple, currentNormTime, todayStr) {
     category: care.category
   };
   io.to(`couple:${couple.id}`).emit('sweet_care_received', carePayload);
-  if (couple.loverId) {
-    io.to(`user:${couple.loverId}`).emit('sweet_care_received', carePayload);
-  }
 
   // 3. Save to chat box
   const chatMsg = db.addMessage({
@@ -1274,9 +1285,6 @@ setInterval(() => {
           };
 
           io.to(`couple:${couple.id}`).emit('alarm_trigger', payload);
-          if (couple.loverId) {
-            io.to(`user:${couple.loverId}`).emit('alarm_trigger', payload);
-          }
 
           // Send native lock-screen push notification to all girlfriend devices
           sendPushToLover(couple.id, couple.loverId, {

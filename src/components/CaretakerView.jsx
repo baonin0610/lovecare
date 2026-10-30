@@ -22,7 +22,9 @@ import {
   BellRing,
   Lock,
   Activity,
-  Sparkles
+  Sparkles,
+  Coffee,
+  Pill
 } from 'lucide-react';
 import { AddReminderModal } from './AddReminderModal';
 import { ReactionModal } from './ReactionModal';
@@ -53,7 +55,7 @@ import {
   getVietnamHoursAndMinutes
 } from '../services/date';
 
-export const CaretakerView = () => {
+export const CaretakerView = ({ navTab = 'today', onNavTabChange }) => {
   const { user, couple, socket, showToast, login, testAlarm, lastSyncTimestamp } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
@@ -93,7 +95,23 @@ export const CaretakerView = () => {
   const [connectError, setConnectError] = useState('');
 
   // Modals & Navigation
-  const [activeTab, setActiveTab] = useState('schedule'); // Default to 'schedule' (Lịch hôm nay)
+  const [internalTab, setInternalTab] = useState('schedule');
+  const activeTab = navTab === 'moments' ? 'feed' : navTab === 'setlog' ? 'setlog' : (navTab === 'today' ? 'schedule' : internalTab);
+
+  const setActiveTab = (newTab) => {
+    setInternalTab(newTab);
+    if (onNavTabChange) {
+      if (newTab === 'schedule') onNavTabChange('today');
+      else if (newTab === 'feed') onNavTabChange('moments');
+      else if (newTab === 'setlog') onNavTabChange('setlog');
+    }
+  };
+
+  useEffect(() => {
+    if (navTab === 'cycle') {
+      setIsCycleModalOpen(true);
+    }
+  }, [navTab]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [isNudgeOpen, setIsNudgeOpen] = useState(false);
@@ -477,7 +495,7 @@ export const CaretakerView = () => {
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-28">
       {/* If Not Connected: Enter Girlfriend's Code Card */}
       {!isConnected && (
         <div className="bg-gradient-to-br from-rose-50 via-white to-pink-50 rounded-3xl p-5 border-2 border-rose-400 shadow-md mb-5">
@@ -918,15 +936,27 @@ export const CaretakerView = () => {
                                         ? 'bg-gray-300 text-gray-600'
                                         : isCurrentSlot
                                         ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
-                                        : isWater
+                                        : rem.type === 'water'
                                         ? 'bg-sky-100 text-sky-700'
+                                        : rem.type === 'sleep'
+                                        ? 'bg-indigo-100 text-indigo-700'
+                                        : rem.type === 'rest'
+                                        ? 'bg-teal-100 text-teal-700'
+                                        : rem.type === 'meds'
+                                        ? 'bg-rose-100 text-rose-700'
                                         : 'bg-amber-100 text-amber-700'
                                     }`}
                                   >
                                     {isCompleted ? (
                                       <CheckCircle2 className="w-4 h-4" />
-                                    ) : isWater ? (
+                                    ) : rem.type === 'water' ? (
                                       <Droplets className="w-4 h-4" />
+                                    ) : rem.type === 'sleep' ? (
+                                      <Moon className="w-4 h-4" />
+                                    ) : rem.type === 'rest' ? (
+                                      <Coffee className="w-4 h-4" />
+                                    ) : rem.type === 'meds' ? (
+                                      <Pill className="w-4 h-4" />
                                     ) : (
                                       <Utensils className="w-4 h-4" />
                                     )}
@@ -1200,7 +1230,12 @@ export const CaretakerView = () => {
       {/* Cycle Tracking & Care Guide Modal */}
       <CycleModal
         isOpen={isCycleModalOpen}
-        onClose={() => setIsCycleModalOpen(false)}
+        onClose={() => {
+          setIsCycleModalOpen(false);
+          if (onNavTabChange && navTab === 'cycle') {
+            onNavTabChange('today');
+          }
+        }}
         cycleData={cycleData}
         todayStr={currentDayStr}
         isLover={false}

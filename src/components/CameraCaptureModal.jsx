@@ -1,7 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RefreshCw, X, Check, Image as ImageIcon, Sparkles, Droplets, Utensils } from 'lucide-react';
+import { Camera, RefreshCw, X, Check, Image as ImageIcon, Sparkles, Droplets, Utensils, Coffee, Moon, Pill } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../services/audio';
+
+const getWatermarkBadgeText = (rem, waterAmt) => {
+  if (!rem) return 'Xác thực LoveCare';
+  if (rem.type === 'water') return `Đã uống ${waterAmt}ml`;
+  if (rem.type === 'sleep') return 'Đi ngủ đúng giờ';
+  if (rem.type === 'rest') return 'Nghỉ ngơi thư giãn';
+  if (rem.type === 'meds') return 'Uống thuốc / Vitamin';
+  return rem.title || 'Ăn uống đầy đủ';
+};
 
 export const CameraCaptureModal = ({ isOpen, onClose, reminder, onComplete }) => {
   const [stream, setStream] = useState(null);
@@ -103,7 +112,7 @@ export const CameraCaptureModal = ({ isOpen, onClose, reminder, onComplete }) =>
 
     // Add watermark stamp
     const dateStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' • ' + new Date().toLocaleDateString('vi-VN');
-    const badgeText = reminder?.type === 'meal' ? `${reminder.title}` : `Đã uống ${waterAmount}ml`;
+    const badgeText = getWatermarkBadgeText(reminder, waterAmount);
 
     // Watermark background tag
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
@@ -161,7 +170,7 @@ export const CameraCaptureModal = ({ isOpen, onClose, reminder, onComplete }) =>
 
           // Add cute watermark stamp
           const dateStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' • ' + new Date().toLocaleDateString('vi-VN');
-          const badgeText = reminder?.type === 'meal' ? `${reminder.title || 'Ăn uống'}` : `Đã uống ${waterAmount}ml`;
+          const badgeText = getWatermarkBadgeText(reminder, waterAmount);
           ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
           const tagW = Math.min(320, canvas.width - 32);
           ctx.roundRect ? ctx.roundRect(16, canvas.height - 68, tagW, 48, 10) : ctx.fillRect(16, canvas.height - 68, tagW, 48);
@@ -269,8 +278,18 @@ export const CameraCaptureModal = ({ isOpen, onClose, reminder, onComplete }) =>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-white">
           <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl ${isWater ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'}`}>
-              {isWater ? <Droplets className="w-4 h-4" /> : <Utensils className="w-4 h-4" />}
+            <div className={`p-2 rounded-xl ${
+              reminder?.type === 'water' ? 'bg-sky-100 text-sky-700' :
+              reminder?.type === 'sleep' ? 'bg-indigo-100 text-indigo-700' :
+              reminder?.type === 'rest' ? 'bg-teal-100 text-teal-700' :
+              reminder?.type === 'meds' ? 'bg-rose-100 text-rose-700' :
+              'bg-amber-100 text-amber-700'
+            }`}>
+              {reminder?.type === 'water' ? <Droplets className="w-4 h-4" /> :
+               reminder?.type === 'sleep' ? <Moon className="w-4 h-4" /> :
+               reminder?.type === 'rest' ? <Coffee className="w-4 h-4" /> :
+               reminder?.type === 'meds' ? <Pill className="w-4 h-4" /> :
+               <Utensils className="w-4 h-4" />}
             </div>
             <div>
               <h3 className="font-bold text-gray-900 text-sm leading-tight">

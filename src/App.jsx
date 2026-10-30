@@ -13,6 +13,7 @@ import { LocketChatBox } from './components/LocketChatBox';
 import { ReactionModal } from './components/ReactionModal';
 import { AlarmSettingsModal } from './components/AlarmSettingsModal';
 import { DiagnosticModal } from './components/DiagnosticModal';
+import { BottomNavBar } from './components/BottomNavBar';
 import {
   Heart,
   Droplets,
@@ -74,6 +75,7 @@ export function App() {
 
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeNavTab, setActiveNavTab] = useState('today');
   const menuRef = useRef(null);
 
   // App version update detection
@@ -659,9 +661,9 @@ export function App() {
         <main className="flex-1">
           {user ? (
             isCaretaker ? (
-              <CaretakerView />
+              <CaretakerView navTab={activeNavTab} onNavTabChange={setActiveNavTab} />
             ) : (
-              <LoverView />
+              <LoverView navTab={activeNavTab} onNavTabChange={setActiveNavTab} />
             )
           ) : (
             /* Welcome / Landing Screen */
@@ -867,41 +869,36 @@ export function App() {
         onClose={() => setIsDiagnosticOpen(false)}
       />
 
-      {/* Floating Locket Chat Bubble at corner */}
-      {user && (
-        <div className="fixed fab-chat-bottom right-5 z-40 flex items-center gap-2">
-          {/* Preview pill if there was a recent message and chat box is closed */}
-          {lastChatMessage && !isChatBoxOpen && (
-            <button
-              onClick={() => {
-                setIsChatBoxOpen(true);
-                setUnreadChatCount(0);
-              }}
-              className="bg-gray-900/90 hover:bg-black text-white text-xs font-medium px-3.5 py-2 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 max-w-[200px] truncate transition active:scale-95 animate-in fade-in slide-in-from-right-3"
-            >
-              <span className="font-bold text-rose-400 shrink-0">
-                {lastChatMessage.userName}:
-              </span>
-              <span className="truncate">{lastChatMessage.text}</span>
-            </button>
-          )}
-
+      {/* Floating Locket Chat Preview pill above Bottom Nav */}
+      {user && lastChatMessage && !isChatBoxOpen && (
+        <div className="fixed bottom-20 right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
           <button
             onClick={() => {
-              setIsChatBoxOpen(!isChatBoxOpen);
+              setIsChatBoxOpen(true);
               setUnreadChatCount(0);
             }}
-            className="relative w-12 h-12 rounded-full bg-gradient-to-tr from-rose-500 via-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white shadow-xl shadow-rose-500/40 flex items-center justify-center transition-all duration-200 active:scale-90 border-2 border-white ring-4 ring-rose-500/20 group"
-            title={isChatBoxOpen ? 'Đóng chat Locket' : 'Mở Chat Box Locket'}
+            className="bg-gray-900/95 hover:bg-black text-white text-xs font-medium px-3.5 py-2.5 rounded-2xl shadow-xl border border-white/20 flex items-center gap-2 max-w-[240px] truncate transition active:scale-95"
           >
-            <MessageCircle className="w-5 h-5 fill-white/20 group-hover:scale-110 transition duration-200" />
-            {unreadChatCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-white text-rose-600 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-rose-500 animate-bounce">
-                {unreadChatCount}
-              </span>
-            )}
+            <MessageCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="font-bold text-rose-300 shrink-0">
+              {lastChatMessage.userName}:
+            </span>
+            <span className="truncate">{lastChatMessage.text}</span>
           </button>
         </div>
+      )}
+
+      {/* Bottom Navigation Bar */}
+      {user && (
+        <BottomNavBar
+          activeTab={activeNavTab}
+          onChangeTab={setActiveNavTab}
+          unreadCount={unreadChatCount}
+          onOpenChat={() => {
+            setIsChatBoxOpen(true);
+            setUnreadChatCount(0);
+          }}
+        />
       )}
 
       {/* Dedicated Locket Chat Box Modal */}

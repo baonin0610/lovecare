@@ -21,7 +21,9 @@ import {
   BellRing,
   Lock,
   Activity,
-  Sparkles
+  Sparkles,
+  Coffee,
+  Pill
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ReactionModal } from './ReactionModal';
@@ -53,7 +55,7 @@ import {
   getVietnamHoursAndMinutes
 } from '../services/date';
 
-export const LoverView = () => {
+export const LoverView = ({ navTab = 'today', onNavTabChange }) => {
   const { user, couple, socket, showToast, testAlarm, lastSyncTimestamp, pendingQueueCount, retryOfflineQueue } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
@@ -86,11 +88,28 @@ export const LoverView = () => {
     }));
   };
 
-  // Modals
+  // Modals & Navigation sync
   const [activeSnapReminder, setActiveSnapReminder] = useState(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedCheckin, setSelectedCheckin] = useState(null);
-  const [activeTab, setActiveTab] = useState('tasks'); // 'tasks', 'setlog', 'album'
+  const [internalTab, setInternalTab] = useState('tasks');
+
+  const activeTab = navTab === 'moments' ? 'album' : navTab === 'setlog' ? 'setlog' : (navTab === 'today' ? 'tasks' : internalTab);
+
+  const setActiveTab = (newTab) => {
+    setInternalTab(newTab);
+    if (onNavTabChange) {
+      if (newTab === 'tasks') onNavTabChange('today');
+      else if (newTab === 'album') onNavTabChange('moments');
+      else if (newTab === 'setlog') onNavTabChange('setlog');
+    }
+  };
+
+  useEffect(() => {
+    if (navTab === 'cycle') {
+      setIsCycleModalOpen(true);
+    }
+  }, [navTab]);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const [notifiedSlots, setNotifiedSlots] = useState({});
 
@@ -488,7 +507,7 @@ export const LoverView = () => {
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-28">
       {/* Offline Pending Photos Queue Banner */}
       {pendingQueueCount > 0 && (
         <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-3.5 mb-4 flex items-center justify-between text-xs text-amber-900 shadow-xs animate-in slide-in-from-top-2">
@@ -787,15 +806,27 @@ export const LoverView = () => {
                                     ? 'bg-gray-300 text-gray-600'
                                     : isCurrentSlot
                                     ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
-                                    : isWater
+                                    : reminder.type === 'water'
                                     ? 'bg-sky-100 text-sky-600'
+                                    : reminder.type === 'sleep'
+                                    ? 'bg-indigo-100 text-indigo-600'
+                                    : reminder.type === 'rest'
+                                    ? 'bg-teal-100 text-teal-600'
+                                    : reminder.type === 'meds'
+                                    ? 'bg-rose-100 text-rose-600'
                                     : 'bg-amber-100 text-amber-700'
                                 }`}
                               >
                                 {isCompleted ? (
                                   <CheckCircle2 className="w-5 h-5" />
-                                ) : isWater ? (
+                                ) : reminder.type === 'water' ? (
                                   <Droplets className="w-5 h-5" />
+                                ) : reminder.type === 'sleep' ? (
+                                  <Moon className="w-5 h-5" />
+                                ) : reminder.type === 'rest' ? (
+                                  <Coffee className="w-5 h-5" />
+                                ) : reminder.type === 'meds' ? (
+                                  <Pill className="w-5 h-5" />
                                 ) : (
                                   <Utensils className="w-5 h-5" />
                                 )}
@@ -1096,7 +1127,12 @@ export const LoverView = () => {
       {/* Cycle Tracking & Health Log Modal */}
       <CycleModal
         isOpen={isCycleModalOpen}
-        onClose={() => setIsCycleModalOpen(false)}
+        onClose={() => {
+          setIsCycleModalOpen(false);
+          if (onNavTabChange && navTab === 'cycle') {
+            onNavTabChange('today');
+          }
+        }}
         cycleData={cycleData}
         todayStr={currentDayStr}
         isLover={true}

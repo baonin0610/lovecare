@@ -1484,9 +1484,18 @@ setInterval(() => {
 
         if (!alreadyDone) {
           console.log(`[Alarm Trigger] Dispatching alarm for couple ${couple.code} at ${currentNormTime}: ${rem.title}`);
-          const defaultMsg = rem.type === 'water'
-            ? `💧 Đến giờ uống ${rem.waterAmountMl || 250}ml nước rồi! Vào chụp ảnh xác thực cho bạn trai nhé.`
-            : `🍱 Đến giờ ăn uống rồi! Vào chụp ảnh bữa ăn cho bạn trai xem nhé.`;
+          let defaultMsg = 'Đến giờ rồi nè! Vào chụp ảnh xác thực cho bạn trai nhé.';
+          if (rem.type === 'water') {
+            defaultMsg = `Đến giờ uống ${rem.waterAmountMl || 250}ml nước rồi! Vào chụp ảnh xác thực cho bạn trai nhé.`;
+          } else if (rem.type === 'meal') {
+            defaultMsg = `Đến giờ ăn uống rồi! Vào chụp ảnh bữa ăn cho bạn trai xem nhé.`;
+          } else if (rem.type === 'sleep') {
+            defaultMsg = `Đến giờ đi ngủ rồi em ơi! Tắt điện thoại đi ngủ sớm cho khỏe nha.`;
+          } else if (rem.type === 'rest') {
+            defaultMsg = `Làm việc mệt rồi, dừng tay nghỉ ngơi thư giãn một chút nhé em.`;
+          } else if (rem.type === 'meds') {
+            defaultMsg = `Đến giờ uống thuốc / vitamin rồi! Nhớ uống đều đặn nhé em.`;
+          }
 
           const isMandatory = rem.mandatory !== false && couple.mandatoryAlarmEnabled !== false;
           const notifTitle = isMandatory

@@ -226,11 +226,17 @@ export const AuthProvider = ({ children }) => {
         let notifBody = reminder.message;
         if (!notifBody) {
           if (reminder.type === 'water') {
-            notifBody = `💧 Uống ngay ${reminder.waterAmountMl || 250}ml nước và chụp ảnh xác thực gửi bạn trai nhé!`;
+            notifBody = `Uống ngay ${reminder.waterAmountMl || 250}ml nước và chụp ảnh xác thực cho bạn trai nhé.`;
           } else if (reminder.type === 'meal') {
-            notifBody = `🍱 Đến giờ ăn rồi! Hãy ăn uống đầy đủ và chụp ảnh bữa ăn gửi bạn trai nhé! ❤️`;
+            notifBody = `Đến giờ ăn rồi! Hãy ăn uống đầy đủ và chụp ảnh bữa ăn gửi bạn trai nhé.`;
+          } else if (reminder.type === 'sleep') {
+            notifBody = `Đến giờ đi ngủ rồi em ơi! Tắt điện thoại đi ngủ sớm cho khỏe nha.`;
+          } else if (reminder.type === 'rest') {
+            notifBody = `Làm việc mệt rồi! Hãy đứng dậy vươn vai hoặc nhắm mắt thư giãn 5-10 phút nhé.`;
+          } else if (reminder.type === 'meds') {
+            notifBody = `Đến giờ uống thuốc / vitamin rồi! Nhớ uống đều đặn và chụp gửi bạn trai kiểm tra nhé.`;
           } else {
-            notifBody = `✨ Đến giờ rồi nè! Hãy hoàn thành và chụp ảnh xác thực cho bạn trai kiểm tra nhé! ❤️`;
+            notifBody = `Đến giờ rồi nè! Hãy hoàn thành và chụp ảnh xác thực cho bạn trai kiểm tra nhé.`;
           }
         }
 

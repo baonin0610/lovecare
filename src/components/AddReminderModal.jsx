@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { X, Droplets, Utensils, Clock, MessageSquare, Plus, BellRing } from 'lucide-react';
+import { X, Droplets, Utensils, Coffee, Moon, Pill, Clock, MessageSquare, Plus, BellRing } from 'lucide-react';
 
 export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
   const [title, setTitle] = useState('');
-  const [type, setType] = useState('water'); // 'water' or 'meal'
+  const [type, setType] = useState('water'); // 'water' | 'meal' | 'rest' | 'sleep' | 'meds'
   const [time, setTime] = useState('10:00');
   const [waterAmountMl, setWaterAmountMl] = useState(300);
   const [mealCategory, setMealCategory] = useState('lunch');
@@ -12,10 +12,56 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
 
   if (!isOpen) return null;
 
+  const handleSelectType = (selectedType) => {
+    setType(selectedType);
+    if (selectedType === 'water') {
+      if (!title || title.includes('Ăn') || title.includes('ngủ') || title.includes('Nghỉ') || title.includes('thuốc')) {
+        setTitle('Cốc nước mát');
+        setMessage('Đến giờ uống nước rồi em ơi! Uống đủ nước cho da đẹp nha ❤️');
+      }
+    } else if (selectedType === 'meal') {
+      if (!title || title.includes('nước') || title.includes('ngủ') || title.includes('Nghỉ') || title.includes('thuốc')) {
+        setTitle('Bữa trưa ngon miệng');
+        setMessage('Đến giờ ăn rồi em, ăn no rồi chụp mâm cơm gửi anh xem nha!');
+      }
+    } else if (selectedType === 'sleep') {
+      setTitle('Đi ngủ đúng giờ');
+      setTime('22:30');
+      setMessage('Đến giờ tắt điện thoại đi ngủ rồi em yêu, ngủ sớm cho khỏe nha!');
+    } else if (selectedType === 'rest') {
+      setTitle('Nghỉ ngơi thư giãn mắt');
+      setTime('15:00');
+      setMessage('Làm việc mệt rồi em, đứng dậy vươn vai hoặc nhắm mắt thư giãn 5-10 phút nhé!');
+    } else if (selectedType === 'meds') {
+      setTitle('Uống vitamin / Thuốc bổ');
+      setTime('09:00');
+      setMessage('Đến giờ uống vitamin/thuốc rồi nè, nhớ uống đều đặn và chụp gửi anh nhé!');
+    }
+  };
+
   const handleTitleChange = (val) => {
     setTitle(val);
     const lower = val.toLowerCase();
     if (
+      lower.includes('ngủ') ||
+      lower.includes('giường') ||
+      lower.includes('khuya')
+    ) {
+      if (type !== 'sleep') setType('sleep');
+    } else if (
+      lower.includes('nghỉ') ||
+      lower.includes('thư giãn') ||
+      lower.includes('mỏi') ||
+      lower.includes('mắt')
+    ) {
+      if (type !== 'rest') setType('rest');
+    } else if (
+      lower.includes('thuốc') ||
+      lower.includes('vitamin') ||
+      lower.includes('viên')
+    ) {
+      if (type !== 'meds') setType('meds');
+    } else if (
       lower.includes('ăn') ||
       lower.includes('cơm') ||
       lower.includes('bữa') ||
@@ -73,23 +119,20 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
           <Plus className="w-4 h-4 text-rose-500" /> Thêm mốc nhắc nhở
         </h3>
         <p className="text-xs text-gray-500 mb-5">
-          Cài đặt giờ uống nước hoặc ăn uống để ứng dụng nhắc bạn gái đúng giờ.
+          Cài đặt mốc uống nước, ăn uống, nghỉ ngơi, đi ngủ hoặc uống vitamin để nhắc bạn gái đúng giờ.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Type Selector */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Loại nhắc nhở:</label>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setType('water');
-                  if (!title || title.includes('Ăn')) setTitle('Cốc nước mát');
-                }}
-                className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-xs transition border ${
+                onClick={() => handleSelectType('water')}
+                className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-xs transition border ${
                   type === 'water'
-                    ? 'border-sky-500 bg-sky-50 text-sky-700 shadow-sm'
+                    ? 'border-sky-500 bg-sky-50 text-sky-700 shadow-xs'
                     : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -98,17 +141,50 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
 
               <button
                 type="button"
-                onClick={() => {
-                  setType('meal');
-                  if (!title || title.includes('nước')) setTitle('Bữa ăn');
-                }}
-                className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-xs transition border ${
+                onClick={() => handleSelectType('meal')}
+                className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-xs transition border ${
                   type === 'meal'
-                    ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm'
+                    ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-xs'
                     : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <Utensils className="w-4 h-4 text-amber-500" /> Bữa ăn
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectType('sleep')}
+                className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-xs transition border ${
+                  type === 'sleep'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-xs'
+                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Moon className="w-4 h-4 text-indigo-500" /> Ngủ sớm
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectType('rest')}
+                className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-xs transition border ${
+                  type === 'rest'
+                    ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-xs'
+                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Coffee className="w-4 h-4 text-teal-500" /> Nghỉ ngơi
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectType('meds')}
+                className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-xs transition border ${
+                  type === 'meds'
+                    ? 'border-rose-500 bg-rose-50 text-rose-700 shadow-xs'
+                    : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Pill className="w-4 h-4 text-rose-500" /> Uống thuốc
               </button>
             </div>
           </div>
@@ -120,7 +196,12 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
               type="text"
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder={type === 'water' ? 'VD: Cốc nước giữa buổi chiều' : 'VD: Bữa trưa văn phòng'}
+              placeholder={
+                type === 'water' ? 'VD: Cốc nước giữa buổi chiều' :
+                type === 'meal' ? 'VD: Bữa trưa văn phòng' :
+                type === 'sleep' ? 'VD: Đi ngủ đúng giờ' :
+                type === 'rest' ? 'VD: Nghỉ ngơi thư giãn mắt' : 'VD: Uống vitamin C / Sắt'
+              }
               className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-400"
               required
             />
@@ -163,7 +244,7 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : type === 'meal' ? (
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Loại bữa ăn:</label>
               <select
@@ -178,7 +259,7 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
                 <option value="other">Bữa phụ khác</option>
               </select>
             </div>
-          )}
+          ) : null}
 
           {/* Reminder message */}
           <div>
@@ -189,7 +270,12 @@ export const AddReminderModal = ({ isOpen, onClose, onAdd }) => {
               rows="2"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="VD: Đến giờ ăn rồi em, ăn no rồi chụp hình gửi anh nhé!"
+              placeholder={
+                type === 'water' ? 'VD: Đến giờ uống nước rồi em ơi!' :
+                type === 'meal' ? 'VD: Đến giờ ăn rồi em, ăn no rồi chụp mâm cơm gửi anh nhé!' :
+                type === 'sleep' ? 'VD: Cất điện thoại đi ngủ sớm cho khỏe nha em yêu!' :
+                type === 'rest' ? 'VD: Đứng dậy vươn vai thư giãn 5 phút nhé em!' : 'VD: Nhớ uống thuốc/vitamin đều đặn nha em!'
+              }
               className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
             />
           </div>

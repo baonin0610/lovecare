@@ -62,11 +62,11 @@
 
 /* Floating Action Buttons vertical stack for iPhone with Home Bar safe area */
 .fab-chat-bottom {
-  bottom: 72px;
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
 }
 
 .fab-camera-bottom {
-  bottom: 72px;
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Mobile tap feel */

@@ -1046,7 +1046,7 @@ export function App() {
         <div
           className="fixed right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2"
           style={{
-            bottom: '72px',
+            bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
             transform: 'translateZ(0)',
             WebkitTransform: 'translateZ(0)'
           }}

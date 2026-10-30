@@ -59,19 +59,17 @@ export const BottomNavBar = ({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-2.5 sm:bottom-3 z-40 pointer-events-none flex justify-center"
+      className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-gray-200/80 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
       style={{
         transform: 'translateZ(0)',
         WebkitTransform: 'translateZ(0)'
       }}
-      aria-label="Thanh điều hướng nổi"
+      aria-label="Thanh điều hướng"
     >
-      {/* Floating Island Dock - Modern iOS & Facebook Floating Capsule */}
       <nav
-        className="w-[calc(100%-20px)] max-w-md pointer-events-auto bg-white/95 backdrop-blur-2xl rounded-[26px] border border-gray-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.04)] px-1 py-1.5 flex items-center justify-between ring-1 ring-black/[0.04] select-none"
+        className="w-full max-w-md mx-auto px-2 pt-1.5 flex items-center justify-around select-none"
         style={{
-          transform: 'translateZ(0)',
-          WebkitTransform: 'translateZ(0)'
+          paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))'
         }}
       >
         {tabs.map((tab) => {
@@ -84,7 +82,7 @@ export const BottomNavBar = ({
               key={tab.id}
               type="button"
               onClick={() => handleTabClick(tab.id)}
-              className={`flex-1 py-1.5 px-0.5 rounded-2xl flex flex-col items-center justify-center transition-transform duration-100 active:scale-90 relative ${
+              className={`flex-1 py-1.5 px-0.5 rounded-2xl flex flex-col items-center justify-center transition-all duration-150 active:scale-90 relative ${
                 isActive
                   ? 'bg-rose-50/90 text-rose-600 font-bold shadow-2xs'
                   : 'text-gray-400 hover:text-gray-600 font-medium'

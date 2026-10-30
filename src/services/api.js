@@ -295,5 +295,48 @@ export const api = {
       body: JSON.stringify(action)
     });
     return res.json();
+  },
+
+  // Bedtime & Reflection Journal
+  async getJournals(user, couple) {
+    if (!couple?.id) return { journals: [], todayJournal: null, today: '' };
+    try {
+      const res = await fetch('/api/journal', {
+        headers: getHeaders(user, couple)
+      });
+      return await res.json();
+    } catch (e) {
+      return { journals: [], todayJournal: null, today: '' };
+    }
+  },
+
+  async saveJournal(user, couple, journalData) {
+    if (!couple?.id) return null;
+    const res = await fetch('/api/journal', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(journalData)
+    });
+    return res.json();
+  },
+
+  async reactJournal(user, couple, journalId, reactionData) {
+    if (!couple?.id || !journalId) return null;
+    const res = await fetch(`/api/journal/${journalId}/react`, {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(reactionData)
+    });
+    return res.json();
+  },
+
+  async nudgeJournal(user, couple) {
+    if (!couple?.id) return null;
+    const res = await fetch('/api/journal/nudge', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify({})
+    });
+    return res.json();
   }
 };

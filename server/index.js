@@ -659,6 +659,137 @@ app.post('/api/cycle/care-action', (req, res) => {
   res.json({ success: true, care: carePayload });
 });
 
+// ==================== BEDTIME & REFLECTION JOURNAL ROUTES ====================
+app.get('/api/journal', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const journals = db.getCoupleJournals(coupleId);
+  const todayStr = getTodayString();
+  const todayJournal = journals.find(j => j.date === todayStr) || null;
+
+  res.json({
+    journals,
+    todayJournal,
+    today: todayStr
+  });
+});
+
+app.post('/api/journal', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const user = db.findUserById(userId);
+  const userName = user?.name || (user?.role === 'lover' ? 'Bạn gái' : 'Bạn trai');
+
+  const { date, mood, moodLabel, energy, gratitude, content, sleepWish } = req.body;
+  const todayStr = getTodayString();
+  const targetDate = date || todayStr;
+
+  const saved = db.saveCoupleJournal(coupleId, {
+    date: targetDate,
+    userId,
+    userName,
+    mood,
+    moodLabel,
+    energy,
+    gratitude,
+    content,
+    sleepWish
+  });
+
+  // Emit realtime event
+  io.to(`couple:${coupleId}`).emit('journal_updated', {
+    journal: saved,
+    today: todayStr
+  });
+
+  // If girlfriend posted, notify boyfriend!
+  const couple = db.findCoupleById(coupleId);
+  if (couple && couple.caretakerId && (!user || user.role === 'lover' || userId === couple.loverId)) {
+    const previewText = content
+      ? (content.length > 50 ? content.slice(0, 50) + '...' : content)
+      : (moodLabel ? `Tâm trạng: ${moodLabel}` : 'Vừa chia sẻ cảm xúc trước khi ngủ');
+
+    sendPushToUser(couple.caretakerId, {
+      title: 'Nhật ký cuối ngày từ bạn gái',
+      body: `${userName}: "${previewText}"`,
+      tag: `journal-${targetDate}`,
+      url: '/?journal=1'
+    });
+  }
+
+  res.json({ success: true, journal: saved });
+});
+
+app.post('/api/journal/:id/react', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+  const journalId = req.params.id;
+  if (!coupleId || !journalId) return res.status(400).json({ error: 'Missing parameters' });
+
+  const user = db.findUserById(userId);
+  const userName = user?.name || 'Bạn trai';
+  const { type, message } = req.body;
+
+  const result = db.reactCoupleJournal(coupleId, journalId, {
+    userId,
+    userName,
+    type,
+    message
+  });
+
+  if (!result) return res.status(404).json({ error: 'Không tìm thấy nhật ký' });
+
+  // Broadcast realtime reaction
+  io.to(`couple:${coupleId}`).emit('journal_reacted', {
+    journalId,
+    reaction: result.reaction,
+    journal: result.journal
+  });
+
+  // Send push notification to girlfriend
+  const couple = db.findCoupleById(coupleId);
+  if (couple && couple.loverId) {
+    sendPushToLover(coupleId, couple.loverId, {
+      title: 'Lời chúc ngủ ngon từ bạn trai',
+      body: message || `${userName} vừa gửi lời chúc ngủ ngon ấm áp tới bạn ❤️`,
+      tag: `journal-react-${Date.now()}`,
+      url: '/?journal=1'
+    });
+  }
+
+  res.json({ success: true, reaction: result.reaction, journal: result.journal });
+});
+
+app.post('/api/journal/nudge', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const user = db.findUserById(userId);
+  const userName = user?.name || 'Bạn trai';
+
+  // Send push and realtime notification to girlfriend
+  const couple = db.findCoupleById(coupleId);
+  if (couple && couple.loverId) {
+    sendPushToLover(coupleId, couple.loverId, {
+      title: 'Lời nhắn trước giờ ngủ',
+      body: `${userName} đang chờ nghe tâm sự hôm nay của bạn đó! Hãy viết vài dòng trước khi ngủ nhé ❤️`,
+      tag: `journal-nudge-${getTodayString()}`,
+      url: '/?journal=1'
+    });
+
+    io.to(`couple:${coupleId}`).emit('journal_nudge', {
+      senderName: userName,
+      message: `${userName} đang chờ nghe tâm sự hôm nay của bạn đó! Hãy viết vài dòng trước khi ngủ nhé ❤️`
+    });
+  }
+
+  res.json({ success: true, message: 'Đã gửi lời nhắn thành công' });
+});
+
 // ==================== REMINDERS ROUTES ====================
 app.get('/api/reminders', (req, res) => {
   const coupleId = req.headers['x-couple-id'];

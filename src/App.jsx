@@ -14,6 +14,7 @@ import { ReactionModal } from './components/ReactionModal';
 import { AlarmSettingsModal } from './components/AlarmSettingsModal';
 import { DiagnosticModal } from './components/DiagnosticModal';
 import { BottomNavBar } from './components/BottomNavBar';
+import { BedtimeJournalModal } from './components/BedtimeJournalModal';
 import {
   Heart,
   Droplets,
@@ -28,7 +29,8 @@ import {
   MoreVertical,
   Wrench,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  BookHeart
 } from 'lucide-react';
 import { api } from './services/api';
 import { IS_DEV_MODE } from './config';
@@ -76,6 +78,8 @@ export function App() {
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState('today');
+  const [isJournalOpen, setIsJournalOpen] = useState(false);
+  const [hasNewJournalAlert, setHasNewJournalAlert] = useState(false);
   const menuRef = useRef(null);
 
   // App version update detection
@@ -178,6 +182,48 @@ export function App() {
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [isMenuOpen]);
+
+  // Open Bedtime Journal if query param ?journal=1 is present
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('journal=1')) {
+      setIsJournalOpen(true);
+    }
+  }, []);
+
+  // Realtime Socket listener for Bedtime Journal events
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleJournalUpdated = (data) => {
+      if (user.role === 'caretaker') {
+        setHasNewJournalAlert(true);
+        showToast('Bạn gái vừa gửi nhật ký cuối ngày ❤️');
+      }
+    };
+
+    const handleJournalReacted = (data) => {
+      if (user.role === 'lover') {
+        showToast('Bạn trai vừa gửi cho bạn một cái ôm và lời chúc ngủ ngon ❤️');
+      }
+    };
+
+    const handleJournalNudge = (data) => {
+      if (user.role === 'lover') {
+        setIsJournalOpen(true);
+        showToast(data.message || 'Bạn trai đang chờ nghe tâm sự hôm nay của bạn đó ❤️');
+      }
+    };
+
+    socket.on('journal_updated', handleJournalUpdated);
+    socket.on('journal_reacted', handleJournalReacted);
+    socket.on('journal_nudge', handleJournalNudge);
+
+    return () => {
+      socket.off('journal_updated', handleJournalUpdated);
+      socket.off('journal_reacted', handleJournalReacted);
+      socket.off('journal_nudge', handleJournalNudge);
+    };
+  }, [socket, user?.role, showToast]);
 
   // Clean, instantaneous update handler without needing to remove the app from Home Screen
   const handleApplyUpdate = async () => {
@@ -363,7 +409,24 @@ export function App() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             {user ? (
               <>
-                {/* 1. Locket Chat Box Header Button (Primary Shortcut) */}
+                {/* 1. Bedtime Journal Button (Icon cuốn sổ góc trên màn hình) */}
+                <button
+                  onClick={() => {
+                    setIsJournalOpen(true);
+                    setHasNewJournalAlert(false);
+                  }}
+                  className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-2xl transition border border-rose-100 shadow-2xs active:scale-95 shrink-0"
+                  title="Nhật ký cuối ngày"
+                >
+                  <BookHeart className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  {hasNewJournalAlert && (
+                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center shadow-md animate-pulse">
+                      •
+                    </span>
+                  )}
+                </button>
+
+                {/* 2. Locket Chat Box Header Button (Primary Shortcut) */}
                 <button
                   onClick={() => {
                     setIsChatBoxOpen(true);
@@ -380,7 +443,7 @@ export function App() {
                   )}
                 </button>
 
-                {/* 2. Quick Menu Hub Button (...) */}
+                {/* 3. Quick Menu Hub Button (...) */}
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -419,6 +482,26 @@ export function App() {
                       <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                         Tiện ích hệ thống
                       </p>
+
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsJournalOpen(true);
+                          setHasNewJournalAlert(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition group text-left"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <BookHeart className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-800 block">Nhật ký cuối ngày</span>
+                            <span className="text-[10px] text-gray-400">Tâm sự trước khi ngủ</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition" />
+                      </button>
 
                       <button
                         onClick={() => {
@@ -923,6 +1006,12 @@ export function App() {
         isOpen={isAlarmSettingsOpen}
         onClose={() => setIsAlarmSettingsOpen(false)}
         onTestAlarm={testAlarm}
+      />
+
+      {/* Bedtime & Night Reflection Journal Modal */}
+      <BedtimeJournalModal
+        isOpen={isJournalOpen}
+        onClose={() => setIsJournalOpen(false)}
       />
     </div>
   );

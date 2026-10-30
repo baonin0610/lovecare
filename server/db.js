@@ -149,7 +149,16 @@ class Database {
         const cloudData = await supabase.loadAll();
         if (cloudData) {
           if (cloudData.users && cloudData.users.length > 0) this.data.users = cloudData.users;
-          if (cloudData.couples && cloudData.couples.length > 0) this.data.couples = cloudData.couples;
+          if (cloudData.couples && cloudData.couples.length > 0) {
+            this.data.couples = cloudData.couples.map(cc => {
+              const localC = (this.data.couples || []).find(c => c.id === cc.id);
+              return {
+                ...cc,
+                cycle: localC?.cycle || cc.cycle,
+                bedtimeJournals: localC?.bedtimeJournals || cc.bedtimeJournals || []
+              };
+            });
+          }
           if (cloudData.reminders && cloudData.reminders.length > 0) this.data.reminders = cloudData.reminders;
           if (cloudData.checkins && cloudData.checkins.length > 0) this.data.checkins = cloudData.checkins;
           if (cloudData.messages && cloudData.messages.length > 0) this.data.messages = cloudData.messages;
@@ -343,6 +352,90 @@ class Database {
 
     this.save();
     return { cycle: couple.cycle, entry };
+  }
+
+  // Bedtime & Reflection Journal
+  getCoupleJournals(coupleId) {
+    const couple = this.findCoupleById(coupleId);
+    if (!couple) return [];
+    if (!Array.isArray(couple.bedtimeJournals)) {
+      couple.bedtimeJournals = [];
+    }
+    return couple.bedtimeJournals;
+  }
+
+  saveCoupleJournal(coupleId, journalData = {}) {
+    const couple = this.findCoupleById(coupleId);
+    if (!couple) return null;
+    if (!Array.isArray(couple.bedtimeJournals)) {
+      couple.bedtimeJournals = [];
+    }
+
+    const date = journalData.date || new Date().toISOString().slice(0, 10);
+    const existingIndex = couple.bedtimeJournals.findIndex(j => j.date === date);
+
+    const nowIso = new Date().toISOString();
+    let savedEntry = null;
+
+    if (existingIndex !== -1) {
+      const existing = couple.bedtimeJournals[existingIndex];
+      savedEntry = {
+        ...existing,
+        ...journalData,
+        date,
+        updatedAt: nowIso
+      };
+      couple.bedtimeJournals[existingIndex] = savedEntry;
+    } else {
+      savedEntry = {
+        id: `journal-${Date.now()}`,
+        date,
+        userId: journalData.userId || null,
+        userName: journalData.userName || '',
+        mood: journalData.mood || 'peaceful',
+        moodLabel: journalData.moodLabel || 'Bình yên, nhẹ nhõm',
+        energy: typeof journalData.energy === 'number' ? journalData.energy : 80,
+        gratitude: journalData.gratitude || '',
+        content: journalData.content || '',
+        sleepWish: journalData.sleepWish || '',
+        reactions: [],
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+      couple.bedtimeJournals.unshift(savedEntry);
+    }
+
+    if (couple.bedtimeJournals.length > 180) {
+      couple.bedtimeJournals = couple.bedtimeJournals.slice(0, 180);
+    }
+
+    this.save();
+    return savedEntry;
+  }
+
+  reactCoupleJournal(coupleId, journalId, reactionData = {}) {
+    const couple = this.findCoupleById(coupleId);
+    if (!couple || !Array.isArray(couple.bedtimeJournals)) return null;
+
+    const journal = couple.bedtimeJournals.find(j => j.id === journalId);
+    if (!journal) return null;
+
+    if (!Array.isArray(journal.reactions)) {
+      journal.reactions = [];
+    }
+
+    const reaction = {
+      id: `react-${Date.now()}`,
+      userId: reactionData.userId || '',
+      userName: reactionData.userName || 'Bạn trai',
+      type: reactionData.type || 'hug',
+      message: reactionData.message || 'Chúc em ngủ thật ngon ❤️',
+      createdAt: new Date().toISOString()
+    };
+
+    journal.reactions.push(reaction);
+    this.save();
+    return { journal, reaction };
   }
 
   // Reminders

@@ -78,7 +78,8 @@ function addDays(d, days) {
 /**
  * Calculates current cycle status, phase, and predictions
  */
-export function calculateCycle(cycleData = {}, currentDateStr = null) {
+export function calculateCycle(rawCycleData = {}, currentDateStr = null) {
+  const cycleData = (rawCycleData && typeof rawCycleData === 'object') ? rawCycleData : {};
   const today = currentDateStr ? parseDateOnly(currentDateStr) : new Date();
   const todayStr = currentDateStr || formatDateOnly(today);
 

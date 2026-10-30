@@ -23,6 +23,18 @@ class ErrorBoundary extends React.Component {
     window.location.reload();
   };
 
+  handleHardReset = () => {
+    try {
+      localStorage.removeItem('lovecare_couple');
+      sessionStorage.clear();
+      if ('caches' in window) {
+        caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+      }
+    } catch (e) {}
+    this.setState({ hasError: false, error: null });
+    window.location.href = '/?reset=' + Date.now();
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -66,23 +78,40 @@ class ErrorBoundary extends React.Component {
             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', lineHeight: '1.5' }}>
               Giao diện vừa được làm mới. Bấm nút bên dưới để tiếp tục trải nghiệm!
             </p>
-            <button
-              onClick={this.handleReset}
-              style={{
-                width: '100%',
-                padding: '14px 20px',
-                background: '#F43F5E',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                fontWeight: 'bold',
-                fontSize: '14px',
-                cursor: 'pointer',
-                boxShadow: '0 8px 16px -2px rgba(244, 63, 94, 0.25)'
-              }}
-            >
-              Làm Mới & Tiếp Tục Dùng
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={this.handleReset}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  background: '#F43F5E',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '16px',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 16px -2px rgba(244, 63, 94, 0.25)'
+                }}
+              >
+                Làm Mới &amp; Tiếp Tục Dùng
+              </button>
+              <button
+                onClick={this.handleHardReset}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  background: 'transparent',
+                  color: '#9ca3af',
+                  border: 'none',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                Khởi động lại ứng dụng
+              </button>
+            </div>
           </div>
         </div>
       );

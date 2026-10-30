@@ -66,6 +66,7 @@ export const CaretakerView = ({ navTab = 'today', onNavTabChange }) => {
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [cycleData, setCycleData] = useState(null);
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+  const [currentDayStr, setCurrentDayStr] = useState(() => getLocalTodayString());
 
   // Filter checkins for TODAY only
   const todayCheckins = useMemo(() => {
@@ -322,8 +323,6 @@ export const CaretakerView = ({ navTab = 'today', onNavTabChange }) => {
   };
 
   // Automatic midnight reset tracker: cleans schedule immediately at 00:00 without page reload
-  const [currentDayStr, setCurrentDayStr] = useState(() => getLocalTodayString());
-
   useEffect(() => {
     const dayCheckTimer = setInterval(() => {
       const newDayStr = getLocalTodayString();

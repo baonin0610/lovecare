@@ -51,16 +51,28 @@ export const api = {
     return res.json();
   },
 
-  // Checkins
-  async getCheckins(user, couple, date) {
+  // Checkins with pagination support
+  async getCheckins(user, couple, dateOrOptions) {
     if (!couple?.id) return [];
     try {
-      const url = date ? `/api/checkins?date=${date}` : '/api/checkins';
+      let url = '/api/checkins';
+      if (typeof dateOrOptions === 'string' && dateOrOptions) {
+        url = `/api/checkins?date=${dateOrOptions}`;
+      } else if (typeof dateOrOptions === 'object' && dateOrOptions) {
+        const params = new URLSearchParams();
+        if (dateOrOptions.date) params.set('date', dateOrOptions.date);
+        if (dateOrOptions.limit) params.set('limit', dateOrOptions.limit);
+        if (dateOrOptions.offset !== undefined) params.set('offset', dateOrOptions.offset);
+        if (dateOrOptions.page) params.set('page', dateOrOptions.page);
+        url = `/api/checkins?${params.toString()}`;
+      }
       const res = await fetch(url, {
         headers: getHeaders(user, couple)
       });
       const data = await res.json();
-      return Array.isArray(data) ? data : [];
+      if (Array.isArray(data)) return data;
+      if (data?.items && Array.isArray(data.items)) return data.items;
+      return [];
     } catch (e) {
       return [];
     }
@@ -156,17 +168,29 @@ export const api = {
     return res.json();
   },
 
-  // Locket Chat Box Messages
-  async getMessages(user, couple) {
-    if (!couple?.id) return [];
+  // Locket Chat Box Messages with Pagination support
+  async getMessages(user, couple, options = {}) {
+    if (!couple?.id) return { items: [], hasMore: false, total: 0 };
     try {
-      const res = await fetch('/api/messages', {
+      const params = new URLSearchParams();
+      if (options.limit) params.set('limit', options.limit);
+      if (options.before) params.set('before', options.before);
+      params.set('paginated', 'true');
+
+      const res = await fetch(`/api/messages?${params.toString()}`, {
         headers: getHeaders(user, couple)
       });
       const data = await res.json();
-      return Array.isArray(data) ? data : [];
+      if (Array.isArray(data)) {
+        return { items: data, hasMore: false, total: data.length };
+      }
+      return {
+        items: Array.isArray(data?.items) ? data.items : [],
+        hasMore: !!data?.hasMore,
+        total: data?.total || 0
+      };
     } catch (e) {
-      return [];
+      return { items: [], hasMore: false, total: 0 };
     }
   },
 

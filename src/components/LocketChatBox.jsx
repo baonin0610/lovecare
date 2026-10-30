@@ -40,6 +40,8 @@ export const LocketChatBox = ({
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -48,17 +50,35 @@ export const LocketChatBox = ({
   const partnerRoleName = isCaretaker ? 'Bạn gái' : 'Bạn trai';
   const quickChips = isCaretaker ? QUICK_CHIPS_BOYFRIEND : QUICK_CHIPS_GIRLFRIEND;
 
-  // Load chat messages
+  // Load chat messages with pagination
   const loadMessages = async () => {
     if (!couple?.id) return;
     try {
       setLoading(true);
-      const data = await api.getMessages(user, couple);
-      setMessages(Array.isArray(data) ? data : []);
+      const res = await api.getMessages(user, couple, { limit: 30 });
+      setMessages(res.items || []);
+      setHasMore(!!res.hasMore);
     } catch (err) {
       console.error('Error loading chat messages:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (!hasMore || loadingMore || messages.length === 0) return;
+    try {
+      setLoadingMore(true);
+      const oldestId = messages[0].id;
+      const res = await api.getMessages(user, couple, { limit: 30, before: oldestId });
+      if (res.items && res.items.length > 0) {
+        setMessages((prev) => [...res.items, ...prev]);
+      }
+      setHasMore(!!res.hasMore);
+    } catch (err) {
+      console.warn('Failed to load older messages:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -218,7 +238,20 @@ export const LocketChatBox = ({
               </p>
             </div>
           ) : (
-            messages.map((msg, index) => {
+            <>
+              {hasMore && (
+                <div className="text-center py-1">
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 shadow-2xs active:scale-95 transition disabled:opacity-50"
+                  >
+                    {loadingMore ? 'Đang nạp tin nhắn cũ...' : '↑ Tải thêm tin nhắn cũ'}
+                  </button>
+                </div>
+              )}
+              {messages.map((msg, index) => {
               const isMe = msg.userId === user?.id;
               const hasCheckinPreview = !!msg.checkinPhotoUrl;
               const timeDisplay = formatMessageTime(msg.time, msg.createdAt);
@@ -304,7 +337,8 @@ export const LocketChatBox = ({
                   </div>
                 </div>
               );
-            })
+            })}
+            </>
           )}
           <div ref={messagesEndRef} />
         </div>

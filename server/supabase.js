@@ -31,13 +31,33 @@ const getHeaders = (contentType = 'application/json') => ({
 });
 
 export const supabase = {
-  // Upload photo to Supabase Storage bucket 'checkins'
+  // Ensure the public storage bucket exists for CDN photo hosting
+  async ensureBucket(bucketName = 'checkins') {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          id: bucketName,
+          name: bucketName,
+          public: true,
+          file_size_limit: 10485760 // 10MB
+        })
+      });
+      return res.ok || res.status === 409;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // Upload photo to Supabase Storage bucket 'checkins' (Permanent CDN)
   async uploadPhoto(filename, buffer, mimeType = 'image/jpeg') {
     if (!isSupabaseConfigured()) return null;
 
     try {
       const uploadUrl = `${SUPABASE_URL}/storage/v1/object/checkins/${filename}`;
-      const res = await fetch(uploadUrl, {
+      let res = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_KEY,
@@ -47,6 +67,22 @@ export const supabase = {
         },
         body: buffer
       });
+
+      // If bucket does not exist yet (404/400), automatically create it and retry upload once
+      if (res.status === 404 || res.status === 400) {
+        console.log('[Supabase Storage] Provisioning public bucket "checkins"...');
+        await this.ensureBucket('checkins');
+        res = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': mimeType || 'image/jpeg',
+            'x-upsert': 'true'
+          },
+          body: buffer
+        });
+      }
 
       if (res.ok) {
         // Return permanent public CDN URL
@@ -69,24 +105,25 @@ export const supabase = {
     if (!isSupabaseConfigured()) return null;
 
     try {
-      const fetchTable = async (table) => {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*`, {
+      const fetchTable = async (table, query = 'select=*') => {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
           headers: getHeaders()
         });
         if (res.ok) return await res.json();
         return [];
       };
 
-      const [users, couples, reminders, checkins, nudges, pushSubs] = await Promise.all([
+      const [users, couples, reminders, checkins, nudges, pushSubs, messages] = await Promise.all([
         fetchTable('users'),
         fetchTable('couples'),
         fetchTable('reminders'),
-        fetchTable('checkins'),
-        fetchTable('nudges'),
-        fetchTable('push_subscriptions').catch(() => [])
+        fetchTable('checkins', 'select=*&order=created_at.desc&limit=150'), // Limit to latest 150 checkins on boot to prevent loading massive Base64
+        fetchTable('nudges', 'select=*&order=created_at.desc&limit=50'),
+        fetchTable('push_subscriptions').catch(() => []),
+        fetchTable('messages', 'select=*&order=created_at.desc&limit=100').catch(() => [])
       ]);
 
-      console.log(`[Supabase DB] Loaded from cloud: ${users.length} users, ${couples.length} couples, ${reminders.length} reminders, ${checkins.length} checkins, ${Array.isArray(pushSubs) ? pushSubs.length : 0} push subscriptions`);
+      console.log(`[Supabase DB] Loaded from cloud: ${users.length} users, ${couples.length} couples, ${reminders.length} reminders, ${checkins.length} checkins, ${Array.isArray(messages) ? messages.length : 0} messages, ${Array.isArray(pushSubs) ? pushSubs.length : 0} push subscriptions`);
 
       // Transform snake_case from DB into camelCase used by frontend
       const camelUsers = users.map(u => ({
@@ -165,6 +202,22 @@ export const supabase = {
         reminders: camelReminders,
         checkins: camelCheckins,
         nudges: nudges || [],
+        messages: Array.isArray(messages) ? messages.map(m => ({
+          id: m.id,
+          coupleId: m.couple_id,
+          userId: m.user_id,
+          userName: m.user_name,
+          role: m.role || '',
+          text: m.text || '',
+          emoji: m.emoji || '',
+          checkinId: m.checkin_id || null,
+          checkinPhotoUrl: m.checkin_photo_url || null,
+          checkinTitle: m.checkin_title || null,
+          checkinTime: m.checkin_time || null,
+          checkinType: m.checkin_type || null,
+          time: m.time || '',
+          createdAt: m.created_at
+        })) : [],
         pushSubscriptions: Array.isArray(pushSubs) ? pushSubs.map(s => ({
           id: s.id,
           userId: s.user_id,

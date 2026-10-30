@@ -152,9 +152,10 @@ class Database {
           if (cloudData.couples && cloudData.couples.length > 0) this.data.couples = cloudData.couples;
           if (cloudData.reminders && cloudData.reminders.length > 0) this.data.reminders = cloudData.reminders;
           if (cloudData.checkins && cloudData.checkins.length > 0) this.data.checkins = cloudData.checkins;
+          if (cloudData.messages && cloudData.messages.length > 0) this.data.messages = cloudData.messages;
           if (cloudData.pushSubscriptions && cloudData.pushSubscriptions.length > 0) this.data.pushSubscriptions = cloudData.pushSubscriptions;
           this.save();
-          console.log(`[Database] Cloud sync complete with Supabase: ${this.data.users.length} users, ${this.data.couples.length} couples, ${this.data.checkins.length} checkins restored.`);
+          console.log(`[Database] Cloud sync complete with Supabase: ${this.data.users.length} users, ${this.data.couples.length} couples, ${this.data.checkins.length} checkins, ${this.data.messages.length} messages restored.`);
         }
       } catch (e) {
         console.warn('[Database] Cloud init failed, running on local storage:', e.message);
@@ -308,9 +309,9 @@ class Database {
     return null;
   }
 
-  // Checkins
-  getCheckins(coupleId, dateStr) {
-    return this.data.checkins.filter(c => {
+  // Checkins with pagination support
+  getCheckins(coupleId, dateStr, options = {}) {
+    const list = this.data.checkins.filter(c => {
       if (c.coupleId !== coupleId) return false;
       if (dateStr) {
         let chkDate = '';
@@ -331,6 +332,22 @@ class Database {
       }
       return true;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const limit = options.limit ? parseInt(options.limit, 10) : null;
+    const offset = options.offset ? parseInt(options.offset, 10) : 0;
+
+    if (limit && limit > 0) {
+      const items = list.slice(offset, offset + limit);
+      return {
+        items,
+        total: list.length,
+        hasMore: offset + limit < list.length,
+        limit,
+        offset
+      };
+    }
+
+    return list;
   }
 
   addCheckin(checkinData) {
@@ -373,17 +390,18 @@ class Database {
     return nudgeData;
   }
 
-  // Messages (Locket Chat Box stream for couple)
-  getMessages(coupleId) {
+  // Messages (Locket Chat Box stream for couple) with pagination
+  getMessages(coupleId, options = {}) {
     if (!this.data.messages) this.data.messages = [];
     const directMsgs = this.data.messages.filter(m => m.coupleId === coupleId);
 
     // Also seamlessly include all replies to checkins that were made in ReactionModal
     const existingMsgIds = new Set(directMsgs.map(m => m.id));
-    const checkins = this.getCheckins(coupleId);
+    const rawCheckins = this.getCheckins(coupleId);
+    const checkinList = Array.isArray(rawCheckins) ? rawCheckins : (rawCheckins.items || []);
     const checkinMsgs = [];
 
-    for (const c of checkins) {
+    for (const c of checkinList) {
       if (c.reactions && Array.isArray(c.reactions)) {
         for (const rx of c.reactions) {
           const msgId = `msg-${rx.id}`;
@@ -409,9 +427,32 @@ class Database {
       }
     }
 
-    return [...directMsgs, ...checkinMsgs].sort(
+    const all = [...directMsgs, ...checkinMsgs].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
+
+    const limit = options.limit ? parseInt(options.limit, 10) : null;
+    const before = options.before;
+
+    if (limit && limit > 0) {
+      let filtered = all;
+      if (before) {
+        const beforeIdx = all.findIndex(m => m.id === before || m.createdAt === before);
+        if (beforeIdx !== -1) {
+          filtered = all.slice(0, beforeIdx);
+        }
+      }
+      const startIndex = Math.max(0, filtered.length - limit);
+      const items = filtered.slice(startIndex);
+      return {
+        items,
+        total: all.length,
+        hasMore: startIndex > 0,
+        limit
+      };
+    }
+
+    return all;
   }
 
   addMessage(msgData) {

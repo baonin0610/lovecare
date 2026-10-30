@@ -610,12 +610,32 @@ app.delete('/api/reminders/:id', (req, res) => {
 
 // ==================== CHECKINS ROUTES ====================
 app.get('/api/checkins', (req, res) => {
-  const coupleId = req.headers['x-couple-id'];
-  const date = req.query.date; // optional YYYY-MM-DD
+  const coupleId = req.headers['x-couple-id'] || req.query.coupleId;
+  const { date, limit, offset, page } = req.query;
   if (!coupleId) return res.json([]);
 
-  const checkins = db.getCheckins(coupleId, date);
-  res.json(checkins);
+  let calcOffset = offset ? parseInt(offset, 10) : 0;
+  if (page && limit) {
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = parseInt(limit, 10);
+    calcOffset = (pageNum - 1) * limitNum;
+  }
+
+  const result = db.getCheckins(coupleId, date, {
+    limit: limit ? parseInt(limit, 10) : (date ? null : 60),
+    offset: calcOffset
+  });
+
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    res.setHeader('X-Total-Count', result.total);
+    res.setHeader('X-Has-More', String(result.hasMore));
+    if (limit || req.query.paginated === 'true') {
+      return res.json(result);
+    }
+    return res.json(result.items);
+  }
+
+  res.json(result);
 });
 
 app.post('/api/checkins', upload.single('photo'), async (req, res) => {
@@ -781,11 +801,25 @@ app.post('/api/checkins/:id/reaction', (req, res) => {
 
 // ==================== LOCKET CHAT BOX ROUTES ====================
 app.get('/api/messages', (req, res) => {
-  const coupleId = req.headers['x-couple-id'];
+  const coupleId = req.headers['x-couple-id'] || req.query.coupleId;
   if (!coupleId) return res.json([]);
 
-  const messages = db.getMessages(coupleId);
-  res.json(messages);
+  const { limit, before } = req.query;
+  const result = db.getMessages(coupleId, {
+    limit: limit ? parseInt(limit, 10) : 40,
+    before
+  });
+
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    res.setHeader('X-Total-Count', result.total);
+    res.setHeader('X-Has-More', String(result.hasMore));
+    if (limit || before || req.query.paginated === 'true') {
+      return res.json(result);
+    }
+    return res.json(result.items);
+  }
+
+  res.json(result);
 });
 
 app.post('/api/messages', (req, res) => {

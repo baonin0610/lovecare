@@ -1,5 +1,5 @@
 // Service Worker for LoveCare PWA (Network-first with offline fallback)
-const CACHE_NAME = 'lovecare-v5';
+const CACHE_NAME = 'lovecare-v6';
 
 // In-memory cache for recent push tags to prevent duplicated OS notifications
 const recentPushTags = new Map();

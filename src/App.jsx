@@ -80,6 +80,31 @@ export function App() {
   const [activeNavTab, setActiveNavTab] = useState('today');
   const [isJournalOpen, setIsJournalOpen] = useState(false);
   const [hasNewJournalAlert, setHasNewJournalAlert] = useState(false);
+  const [tabBadges, setTabBadges] = useState({
+    today: 0,
+    moments: 0,
+    cycle: 0,
+    setlog: 0,
+    journal: 0
+  });
+
+  const handleSelectNavTab = (newTab) => {
+    setActiveNavTab(newTab);
+    setTabBadges((prev) => ({
+      ...prev,
+      [newTab]: 0
+    }));
+  };
+
+  const handleOpenJournal = () => {
+    setIsJournalOpen(true);
+    setHasNewJournalAlert(false);
+    setTabBadges((prev) => ({
+      ...prev,
+      journal: 0
+    }));
+  };
+
   const menuRef = useRef(null);
 
   // App version update detection
@@ -190,19 +215,22 @@ export function App() {
     }
   }, []);
 
-  // Realtime Socket listener for Bedtime Journal events
+  // Realtime Socket listener for Partner Notification Badges & Alerts
   useEffect(() => {
     if (!socket || !user) return;
 
     const handleJournalUpdated = (data) => {
       if (user.role === 'caretaker') {
         setHasNewJournalAlert(true);
+        setTabBadges((prev) => ({ ...prev, journal: prev.journal + 1 }));
         showToast('Bạn gái vừa gửi nhật ký cuối ngày ❤️');
       }
     };
 
     const handleJournalReacted = (data) => {
       if (user.role === 'lover') {
+        setHasNewJournalAlert(true);
+        setTabBadges((prev) => ({ ...prev, journal: prev.journal + 1 }));
         showToast('Bạn trai vừa gửi cho bạn một cái ôm và lời chúc ngủ ngon ❤️');
       }
     };
@@ -210,20 +238,71 @@ export function App() {
     const handleJournalNudge = (data) => {
       if (user.role === 'lover') {
         setIsJournalOpen(true);
+        setTabBadges((prev) => ({ ...prev, journal: 0 }));
         showToast(data.message || 'Bạn trai đang chờ nghe tâm sự hôm nay của bạn đó ❤️');
+      }
+    };
+
+    const handleNewCheckin = (checkin) => {
+      if (user.role === 'caretaker' && checkin.userId !== user.id) {
+        setTabBadges((prev) => ({ ...prev, moments: prev.moments + 1 }));
+      }
+    };
+
+    const handleCheckinReaction = ({ reaction }) => {
+      if (user.role === 'lover' && reaction && reaction.userId !== user.id) {
+        setTabBadges((prev) => ({ ...prev, moments: prev.moments + 1 }));
+      }
+    };
+
+    const handleCycleUpdated = () => {
+      if (user.role === 'caretaker') {
+        setTabBadges((prev) => ({ ...prev, cycle: prev.cycle + 1 }));
+      }
+    };
+
+    const handleCycleCareReceived = () => {
+      if (user.role === 'lover') {
+        setTabBadges((prev) => ({ ...prev, cycle: prev.cycle + 1 }));
+      }
+    };
+
+    const handleNudgeAlert = (nudge) => {
+      if (user.role === 'lover' && nudge.senderId !== user.id) {
+        setTabBadges((prev) => ({ ...prev, today: prev.today + 1 }));
+      }
+    };
+
+    const handleReminderCreated = () => {
+      if (user.role === 'lover') {
+        setTabBadges((prev) => ({ ...prev, today: prev.today + 1 }));
       }
     };
 
     socket.on('journal_updated', handleJournalUpdated);
     socket.on('journal_reacted', handleJournalReacted);
     socket.on('journal_nudge', handleJournalNudge);
+    socket.on('new_checkin', handleNewCheckin);
+    socket.on('checkin_reaction', handleCheckinReaction);
+    socket.on('cycle_updated', handleCycleUpdated);
+    socket.on('cycle_care_received', handleCycleCareReceived);
+    socket.on('sweet_care_received', handleCycleCareReceived);
+    socket.on('nudge_alert', handleNudgeAlert);
+    socket.on('reminder_created', handleReminderCreated);
 
     return () => {
       socket.off('journal_updated', handleJournalUpdated);
       socket.off('journal_reacted', handleJournalReacted);
       socket.off('journal_nudge', handleJournalNudge);
+      socket.off('new_checkin', handleNewCheckin);
+      socket.off('checkin_reaction', handleCheckinReaction);
+      socket.off('cycle_updated', handleCycleUpdated);
+      socket.off('cycle_care_received', handleCycleCareReceived);
+      socket.off('sweet_care_received', handleCycleCareReceived);
+      socket.off('nudge_alert', handleNudgeAlert);
+      socket.off('reminder_created', handleReminderCreated);
     };
-  }, [socket, user?.role, showToast]);
+  }, [socket, user?.role, user?.id, showToast]);
 
   // Clean, instantaneous update handler without needing to remove the app from Home Screen
   const handleApplyUpdate = async () => {
@@ -420,17 +499,14 @@ export function App() {
               <>
                 {/* 1. Bedtime Journal Button (Icon cuốn sổ góc trên màn hình) */}
                 <button
-                  onClick={() => {
-                    setIsJournalOpen(true);
-                    setHasNewJournalAlert(false);
-                  }}
+                  onClick={handleOpenJournal}
                   className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-2xl transition border border-rose-100 shadow-2xs active:scale-95 shrink-0"
                   title="Nhật ký cuối ngày"
                 >
                   <BookHeart className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                  {hasNewJournalAlert && (
-                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center shadow-md animate-pulse">
-                      •
+                  {tabBadges.journal > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center shadow-md border-2 border-white ring-1 ring-rose-500/20 animate-bounce">
+                      {tabBadges.journal > 9 ? '9+' : tabBadges.journal}
                     </span>
                   )}
                 </button>
@@ -495,14 +571,18 @@ export function App() {
                       <button
                         onClick={() => {
                           setIsMenuOpen(false);
-                          setIsJournalOpen(true);
-                          setHasNewJournalAlert(false);
+                          handleOpenJournal();
                         }}
                         className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700 transition group text-left"
                       >
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <div className="w-7 h-7 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform relative">
                             <BookHeart className="w-4 h-4" />
+                            {tabBadges.journal > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                                {tabBadges.journal > 9 ? '9+' : tabBadges.journal}
+                              </span>
+                            )}
                           </div>
                           <div>
                             <span className="text-xs font-semibold text-gray-800 block">Nhật ký cuối ngày</span>
@@ -753,9 +833,9 @@ export function App() {
         <main className="flex-1">
           {user ? (
             isCaretaker ? (
-              <CaretakerView navTab={activeNavTab} onNavTabChange={setActiveNavTab} />
+              <CaretakerView navTab={activeNavTab} onNavTabChange={handleSelectNavTab} />
             ) : (
-              <LoverView navTab={activeNavTab} onNavTabChange={setActiveNavTab} />
+              <LoverView navTab={activeNavTab} onNavTabChange={handleSelectNavTab} />
             )
           ) : (
             /* Welcome / Landing Screen */
@@ -963,7 +1043,7 @@ export function App() {
 
       {/* Floating Locket Chat Preview pill above Bottom Nav */}
       {user && lastChatMessage && !isChatBoxOpen && (
-        <div className="fixed bottom-20 right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-24 right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
           <button
             onClick={() => {
               setIsChatBoxOpen(true);
@@ -980,12 +1060,13 @@ export function App() {
         </div>
       )}
 
-      {/* Bottom Navigation Bar */}
+      {/* Floating Island Bottom Navigation Bar */}
       {user && (
         <BottomNavBar
           activeTab={activeNavTab}
-          onChangeTab={setActiveNavTab}
+          onChangeTab={handleSelectNavTab}
           unreadCount={unreadChatCount}
+          badges={tabBadges}
           onOpenChat={() => {
             setIsChatBoxOpen(true);
             setUnreadChatCount(0);

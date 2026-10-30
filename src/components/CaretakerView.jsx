@@ -494,7 +494,7 @@ export const CaretakerView = ({ navTab = 'today', onNavTabChange }) => {
   }
 
   return (
-    <div className="pb-28">
+    <div className="pb-36 sm:pb-40">
       {/* If Not Connected: Enter Girlfriend's Code Card */}
       {!isConnected && (
         <div className="bg-gradient-to-br from-rose-50 via-white to-pink-50 rounded-3xl p-5 border-2 border-rose-400 shadow-md mb-5">
@@ -627,7 +627,10 @@ export const CaretakerView = ({ navTab = 'today', onNavTabChange }) => {
         cycleData={cycleData}
         todayStr={currentDayStr}
         isLover={false}
-        onOpenModal={() => setIsCycleModalOpen(true)}
+        onOpenModal={() => {
+          setIsCycleModalOpen(true);
+          if (onNavTabChange) onNavTabChange('cycle');
+        }}
         onSendCareAction={handleSendCareAction}
       />
 

@@ -32,6 +32,8 @@ import { SweetCareModal } from './SweetCareModal';
 import { DiagnosticModal } from './DiagnosticModal';
 import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { CaretakerDashboardSkeleton, MomentsFeedSkeleton } from './SkeletonShimmer';
+import { CycleCard } from './CycleCard';
+import { CycleModal } from './CycleModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { sounds } from '../services/audio';
@@ -60,6 +62,8 @@ export const CaretakerView = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSweetCareOpen, setIsSweetCareOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [cycleData, setCycleData] = useState(null);
+  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
 
   // Filter checkins for TODAY only
   const todayCheckins = useMemo(() => {
@@ -139,14 +143,16 @@ export const CaretakerView = () => {
     try {
       setLoading(true);
       setCurrentDayStr(getLocalTodayString());
-      const [rems, chks, st] = await Promise.all([
+      const [rems, chks, st, cyc] = await Promise.all([
         api.getReminders(user, couple),
         api.getCheckins(user, couple),
-        api.getStats(user, couple)
+        api.getStats(user, couple),
+        api.getCycle(user, couple)
       ]);
       setReminders(Array.isArray(rems) ? rems : []);
       setCheckins(Array.isArray(chks) ? chks : []);
       setStats(st && !st.error ? st : null);
+      if (cyc?.cycle) setCycleData(cyc.cycle);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -224,6 +230,11 @@ export const CaretakerView = () => {
       loadData();
     };
 
+    const handleCycleUpdated = ({ cycle, entry }) => {
+      if (cycle) setCycleData(cycle);
+      if (entry) showToast('Bạn gái vừa cập nhật nhật ký thể trạng chu kỳ.');
+    };
+
     socket.on('new_checkin', handleNewCheckin);
     socket.on('checkin_reaction', handleReaction);
     socket.on('checkin_deleted', handleDeleteCheckinEvent);
@@ -231,6 +242,7 @@ export const CaretakerView = () => {
     socket.on('reminder_updated', handleUpdateReminder);
     socket.on('reminder_deleted', handleDeleteReminderEvent);
     socket.on('day_changed', handleDayChanged);
+    socket.on('cycle_updated', handleCycleUpdated);
 
     return () => {
       socket.off('new_checkin', handleNewCheckin);
@@ -240,6 +252,7 @@ export const CaretakerView = () => {
       socket.off('reminder_updated', handleUpdateReminder);
       socket.off('reminder_deleted', handleDeleteReminderEvent);
       socket.off('day_changed', handleDayChanged);
+      socket.off('cycle_updated', handleCycleUpdated);
     };
   }, [socket, user, couple]);
 
@@ -272,6 +285,11 @@ export const CaretakerView = () => {
   const handleToggleReminder = async (reminder) => {
     await api.updateReminder(user, couple, reminder.id, { enabled: !reminder.enabled });
     await loadData();
+  };
+
+  const handleSendCareAction = async (action) => {
+    await api.sendCycleCareAction(user, couple, action);
+    showToast(`Đã gửi: "${action.title}" đến bạn gái.`);
   };
 
   const handleSendNudge = async () => {
@@ -586,6 +604,15 @@ export const CaretakerView = () => {
           </button>
         </div>
       </div>
+
+      {/* Chu kỳ & Sức khỏe của bạn gái (Flo Standard) */}
+      <CycleCard
+        cycleData={cycleData}
+        todayStr={currentDayStr}
+        isLover={false}
+        onOpenModal={() => setIsCycleModalOpen(true)}
+        onSendCareAction={handleSendCareAction}
+      />
 
       {/* Navigation Tabs for Caretaker */}
       <div className="flex gap-1 p-1 bg-slate-100/90 rounded-2xl mb-5 border border-slate-200/60 shadow-2xs">
@@ -1168,6 +1195,16 @@ export const CaretakerView = () => {
         checkins={checkins}
         reminders={reminders}
         onForceSync={loadData}
+      />
+
+      {/* Cycle Tracking & Care Guide Modal */}
+      <CycleModal
+        isOpen={isCycleModalOpen}
+        onClose={() => setIsCycleModalOpen(false)}
+        cycleData={cycleData}
+        todayStr={currentDayStr}
+        isLover={false}
+        onSendCareAction={handleSendCareAction}
       />
     </div>
   );

@@ -551,6 +551,114 @@ app.put('/api/couple/alarm-settings', (req, res) => {
   res.json(enriched);
 });
 
+// ==================== CYCLE TRACKING (FLO STANDARD) ROUTES ====================
+app.get('/api/cycle', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const cycle = db.getCoupleCycle(coupleId);
+  if (!cycle) return res.status(404).json({ error: 'Không tìm thấy dữ liệu chu kỳ' });
+
+  res.json({
+    cycle,
+    today: getTodayString()
+  });
+});
+
+app.post('/api/cycle/settings', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const { lastPeriodDate, cycleLength, periodDuration } = req.body;
+  const cycle = db.updateCoupleCycleSettings(coupleId, { lastPeriodDate, cycleLength, periodDuration });
+
+  io.to(`couple:${coupleId}`).emit('cycle_updated', { cycle, today: getTodayString() });
+  res.json({ cycle, today: getTodayString() });
+});
+
+app.post('/api/cycle/log', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const { date, isPeriod, flow, symptoms, mood, note } = req.body;
+  const result = db.logCoupleCycleDay(coupleId, { date, isPeriod, flow, symptoms, mood, note });
+
+  io.to(`couple:${coupleId}`).emit('cycle_updated', {
+    cycle: result.cycle,
+    entry: result.entry,
+    today: getTodayString()
+  });
+
+  // Notify boyfriend if girlfriend updated status with symptoms
+  const couple = db.findCoupleById(coupleId);
+  if (couple && couple.caretakerId && userId === couple.loverId) {
+    const loverUser = db.findUserById(couple.loverId);
+    const loverName = loverUser ? loverUser.name : 'Bạn gái';
+    let notifBody = `${loverName} vừa cập nhật nhật ký thể trạng hôm nay.`;
+    if (symptoms && symptoms.length > 0) {
+      notifBody = `${loverName} vừa ghi nhận: có triệu chứng mệt/đau. Hãy vào xem và chăm sóc bạn gái nhé!`;
+    }
+    sendPushToUser(couple.caretakerId, {
+      title: 'Theo dõi sức khỏe bạn gái',
+      body: notifBody,
+      tag: `cycle-${date || Date.now()}`,
+      url: '/'
+    });
+  }
+
+  res.json(result);
+});
+
+app.post('/api/cycle/care-action', (req, res) => {
+  const coupleId = req.headers['x-couple-id'];
+  const userId = req.headers['x-user-id'];
+  const { actionId, title, message } = req.body;
+  if (!coupleId) return res.status(400).json({ error: 'Missing couple id' });
+
+  const user = db.findUserById(userId);
+  const userName = user ? user.name : 'Bạn trai';
+
+  const carePayload = {
+    id: `care-cycle-${Date.now()}`,
+    actionId,
+    title: title || 'Chăm sóc từ bạn trai',
+    message: message || 'Anh nhớ bạn gái giữ ấm cơ thể nhé.',
+    senderName: userName,
+    createdAt: new Date().toISOString()
+  };
+
+  // 1. Emit live toast/modal to girlfriend
+  io.to(`couple:${coupleId}`).emit('cycle_care_received', carePayload);
+
+  // 2. Record in chat stream
+  const chatMsg = {
+    id: `msg-cycle-${Date.now()}`,
+    coupleId,
+    userId,
+    userName,
+    role: 'caretaker',
+    text: `${title}: "${message}"`,
+    time: getVietnamTimeString(),
+    createdAt: new Date().toISOString()
+  };
+  db.addMessage(chatMsg);
+  io.to(`couple:${coupleId}`).emit('chat_message', chatMsg);
+
+  // 3. Send phone push notification to girlfriend
+  const couple = db.findCoupleById(coupleId);
+  if (couple && couple.loverId) {
+    sendPushToLover(coupleId, couple.loverId, {
+      title: title || 'Lời nhắn quan tâm từ bạn trai',
+      body: message,
+      tag: `cycle-care-${Date.now()}`,
+      url: '/'
+    });
+  }
+
+  res.json({ success: true, care: carePayload });
+});
+
 // ==================== REMINDERS ROUTES ====================
 app.get('/api/reminders', (req, res) => {
   const coupleId = req.headers['x-couple-id'];

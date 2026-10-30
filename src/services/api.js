@@ -252,5 +252,48 @@ export const api = {
     } catch (e) {
       return { error: e.message };
     }
+  },
+
+  // Cycle Tracking (Flo Standard)
+  async getCycle(user, couple) {
+    if (!couple?.id) return null;
+    try {
+      const res = await fetch('/api/cycle', {
+        headers: getHeaders(user, couple)
+      });
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async updateCycleSettings(user, couple, settings) {
+    if (!couple?.id) return null;
+    const res = await fetch('/api/cycle/settings', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(settings)
+    });
+    return res.json();
+  },
+
+  async logCycleDay(user, couple, logData) {
+    if (!couple?.id) return null;
+    const res = await fetch('/api/cycle/log', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(logData)
+    });
+    return res.json();
+  },
+
+  async sendCycleCareAction(user, couple, action) {
+    if (!couple?.id) return null;
+    const res = await fetch('/api/cycle/care-action', {
+      method: 'POST',
+      headers: getHeaders(user, couple),
+      body: JSON.stringify(action)
+    });
+    return res.json();
   }
 };

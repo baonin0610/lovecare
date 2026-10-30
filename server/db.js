@@ -275,6 +275,76 @@ class Database {
     return null;
   }
 
+  // Cycle Tracking (Flo Standard)
+  getCoupleCycle(coupleId) {
+    const couple = this.findCoupleById(coupleId);
+    if (!couple) return null;
+    if (!couple.cycle) {
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() - 14);
+      const defaultDateStr = defaultDate.toISOString().slice(0, 10);
+
+      couple.cycle = {
+        lastPeriodDate: defaultDateStr,
+        cycleLength: 28,
+        periodDuration: 5,
+        logs: []
+      };
+      this.save();
+    }
+    return couple.cycle;
+  }
+
+  updateCoupleCycleSettings(coupleId, settings = {}) {
+    const couple = this.findCoupleById(coupleId);
+    if (!couple) return null;
+    if (!couple.cycle) this.getCoupleCycle(coupleId);
+
+    if (settings.lastPeriodDate) couple.cycle.lastPeriodDate = settings.lastPeriodDate;
+    if (settings.cycleLength) couple.cycle.cycleLength = Math.max(21, Math.min(45, Number(settings.cycleLength)));
+    if (settings.periodDuration) couple.cycle.periodDuration = Math.max(2, Math.min(10, Number(settings.periodDuration)));
+
+    this.save();
+    return couple.cycle;
+  }
+
+  logCoupleCycleDay(coupleId, logData = {}) {
+    const couple = this.findCoupleById(coupleId);
+    if (!couple) return null;
+    if (!couple.cycle) this.getCoupleCycle(coupleId);
+    if (!Array.isArray(couple.cycle.logs)) couple.cycle.logs = [];
+
+    const date = logData.date || new Date().toISOString().slice(0, 10);
+    const existingIndex = couple.cycle.logs.findIndex(l => l.date === date);
+
+    const entry = {
+      date,
+      isPeriod: logData.isPeriod === true,
+      flow: logData.flow || (logData.isPeriod ? 'medium' : null),
+      symptoms: Array.isArray(logData.symptoms) ? logData.symptoms : [],
+      mood: logData.mood || null,
+      note: logData.note || '',
+      updatedAt: new Date().toISOString()
+    };
+
+    if (existingIndex !== -1) {
+      couple.cycle.logs[existingIndex] = entry;
+    } else {
+      couple.cycle.logs.unshift(entry);
+    }
+
+    if (couple.cycle.logs.length > 120) {
+      couple.cycle.logs = couple.cycle.logs.slice(0, 120);
+    }
+
+    if (entry.isPeriod && (!couple.cycle.lastPeriodDate || date >= couple.cycle.lastPeriodDate)) {
+      couple.cycle.lastPeriodDate = date;
+    }
+
+    this.save();
+    return { cycle: couple.cycle, entry };
+  }
+
   // Reminders
   getReminders(coupleId) {
     return this.data.reminders.filter(r => r.coupleId === coupleId);

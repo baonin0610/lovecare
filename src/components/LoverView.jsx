@@ -30,6 +30,8 @@ import { AlarmSettingsModal } from './AlarmSettingsModal';
 import { DiagnosticModal } from './DiagnosticModal';
 import { CuteAnimatedCat } from './CuteAnimatedCat';
 import { LoverDashboardSkeleton } from './SkeletonShimmer';
+import { CycleCard } from './CycleCard';
+import { CycleModal } from './CycleModal';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
@@ -59,6 +61,8 @@ export const LoverView = () => {
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [cycleData, setCycleData] = useState(null);
+  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
 
   // Filter checkins for TODAY only
   const todayCheckins = useMemo(() => {
@@ -130,14 +134,16 @@ export const LoverView = () => {
     try {
       setLoading(true);
       setCurrentDayStr(getLocalTodayString());
-      const [rems, chks, st] = await Promise.all([
+      const [rems, chks, st, cyc] = await Promise.all([
         api.getReminders(user, couple),
         api.getCheckins(user, couple),
-        api.getStats(user, couple)
+        api.getStats(user, couple),
+        api.getCycle(user, couple)
       ]);
       setReminders(Array.isArray(rems) ? rems : []);
       setCheckins(Array.isArray(chks) ? chks : []);
       setStats(st && !st.error ? st : null);
+      if (cyc?.cycle) setCycleData(cyc.cycle);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -215,6 +221,15 @@ export const LoverView = () => {
       loadData();
     };
 
+    const handleCycleUpdated = ({ cycle }) => {
+      if (cycle) setCycleData(cycle);
+    };
+
+    const handleCycleCare = (care) => {
+      showToast(`${care.title}: "${care.message}"`);
+      sounds.playWaterDrop();
+    };
+
     socket.on('new_checkin', handleNewCheckin);
     socket.on('checkin_reaction', handleReaction);
     socket.on('checkin_deleted', handleDeleteCheckinEvent);
@@ -222,6 +237,8 @@ export const LoverView = () => {
     socket.on('reminder_updated', handleUpdateReminder);
     socket.on('reminder_deleted', handleDeleteReminderEvent);
     socket.on('day_changed', handleDayChanged);
+    socket.on('cycle_updated', handleCycleUpdated);
+    socket.on('cycle_care_received', handleCycleCare);
 
     return () => {
       socket.off('new_checkin', handleNewCheckin);
@@ -231,6 +248,8 @@ export const LoverView = () => {
       socket.off('reminder_updated', handleUpdateReminder);
       socket.off('reminder_deleted', handleDeleteReminderEvent);
       socket.off('day_changed', handleDayChanged);
+      socket.off('cycle_updated', handleCycleUpdated);
+      socket.off('cycle_care_received', handleCycleCare);
     };
   }, [socket, user, couple]);
 
@@ -349,6 +368,18 @@ export const LoverView = () => {
     setCheckins((prev) => prev.filter((c) => c.id !== checkinId));
     setSelectedCheckin(null);
     await loadData();
+  };
+
+  const handleSaveCycleLog = async (logData) => {
+    const res = await api.logCycleDay(user, couple, logData);
+    if (res?.cycle) setCycleData(res.cycle);
+    showToast('Đã lưu nhật ký thể trạng hôm nay.');
+  };
+
+  const handleSaveCycleSettings = async (settings) => {
+    const res = await api.updateCycleSettings(user, couple, settings);
+    if (res?.cycle) setCycleData(res.cycle);
+    showToast('Đã lưu cài đặt chu kỳ.');
   };
 
   // Automatic midnight reset tracker: cleans schedule immediately at 00:00 without page reload
@@ -583,6 +614,14 @@ export const LoverView = () => {
           </div>
         </div>
       </div>
+
+      {/* Chu kỳ & Sức khỏe (Flo Standard) */}
+      <CycleCard
+        cycleData={cycleData}
+        todayStr={currentDayStr}
+        isLover={true}
+        onOpenModal={() => setIsCycleModalOpen(true)}
+      />
 
       {/* Navigation Tabs */}
       <div className="flex gap-1 p-1 bg-slate-100/90 rounded-2xl mb-5 border border-slate-200/60 shadow-2xs">
@@ -1052,6 +1091,17 @@ export const LoverView = () => {
         checkins={checkins}
         reminders={reminders}
         onForceSync={loadData}
+      />
+
+      {/* Cycle Tracking & Health Log Modal */}
+      <CycleModal
+        isOpen={isCycleModalOpen}
+        onClose={() => setIsCycleModalOpen(false)}
+        cycleData={cycleData}
+        todayStr={currentDayStr}
+        isLover={true}
+        onSaveLog={handleSaveCycleLog}
+        onSaveSettings={handleSaveCycleSettings}
       />
     </div>
   );

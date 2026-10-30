@@ -830,7 +830,7 @@ export function App() {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto px-4 pb-28 sm:pb-32 overscroll-contain no-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <main className="flex-1 overflow-y-auto px-4 pb-20 overscroll-contain no-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
           {user ? (
             isCaretaker ? (
               <CaretakerView navTab={activeNavTab} onNavTabChange={handleSelectNavTab} />
@@ -909,7 +909,7 @@ export function App() {
           )}
 
           {/* Global App Footer */}
-          <footer className="mt-auto py-5 text-center text-xs text-gray-400 font-medium select-none">
+          <footer className="mt-4 mb-2 text-center text-xs text-gray-400 font-medium select-none">
             Phát triển bởi Bảo Duy
           </footer>
         </main>
@@ -1046,7 +1046,7 @@ export function App() {
         <div
           className="fixed right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2"
           style={{
-            bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
+            bottom: '68px',
             transform: 'translateZ(0)',
             WebkitTransform: 'translateZ(0)'
           }}

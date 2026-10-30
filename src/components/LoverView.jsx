@@ -506,7 +506,7 @@ export const LoverView = ({ navTab = 'today', onNavTabChange }) => {
   }
 
   return (
-    <div className="pb-36 sm:pb-40">
+    <div className="pb-4">
       {/* Offline Pending Photos Queue Banner */}
       {pendingQueueCount > 0 && (
         <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-3.5 mb-4 flex items-center justify-between text-xs text-amber-900 shadow-xs animate-in slide-in-from-top-2">

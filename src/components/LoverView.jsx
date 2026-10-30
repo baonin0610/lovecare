@@ -644,48 +644,6 @@ export const LoverView = ({ navTab = 'today', onNavTabChange }) => {
         }}
       />
 
-      {/* Navigation Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100/90 rounded-2xl mb-5 border border-slate-200/60 shadow-2xs">
-        <button
-          onClick={() => setActiveTab('tasks')}
-          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'tasks'
-              ? 'bg-white text-gray-900 font-bold shadow-xs'
-              : 'text-slate-500 hover:text-gray-800 font-medium'
-          }`}
-        >
-          <Clock className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden xs:inline">Lịch hôm nay</span>
-          <span className="xs:hidden">Lịch</span>
-          <span className="text-[11px] opacity-80">({reminders.length})</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('album')}
-          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'album'
-              ? 'bg-white text-gray-900 font-bold shadow-xs'
-              : 'text-slate-500 hover:text-gray-800 font-medium'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-          <span className="hidden xs:inline">Khoảnh khắc</span>
-          <span className="xs:hidden">Ảnh</span>
-          <span className="text-[11px] opacity-80">({todayCheckins.length})</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('setlog')}
-          className={`flex-1 py-2 px-1.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'setlog'
-              ? 'bg-white text-gray-900 font-bold shadow-xs'
-              : 'text-slate-500 hover:text-gray-800 font-medium'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5 shrink-0" />
-          <span className="hidden xs:inline">Setlog ngày</span>
-          <span className="xs:hidden">Setlog</span>
-        </button>
-      </div>
-
       {/* TAB 1: Tasks Today (Lịch Hôm Nay theo SÁNG - CHIỀU - TỐI) */}
       {activeTab === 'tasks' && (
         <div className="space-y-4">

@@ -58,15 +58,12 @@ export const BottomNavBar = ({
   };
 
   return (
-    <nav
-      className="fixed left-3 right-3 sm:left-4 sm:right-4 z-40 max-w-md mx-auto pointer-events-none select-none transition-all duration-200"
-      style={{
-        bottom: 'max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px))'
-      }}
+    <div
+      className="fixed inset-x-0 bottom-0 z-50 pointer-events-none flex justify-center safe-bottom-dock"
       aria-label="Thanh điều hướng nổi"
     >
       {/* Floating Island Dock - Modern iOS & Facebook Floating Capsule */}
-      <div className="pointer-events-auto bg-white/95 backdrop-blur-2xl rounded-[26px] border border-gray-200/80 shadow-[0_12px_36px_-6px_rgba(0,0,0,0.16),0_2px_8px_rgba(0,0,0,0.04)] px-1.5 py-1.5 flex items-center justify-between ring-1 ring-black/[0.04]">
+      <nav className="w-[calc(100%-24px)] max-w-md pointer-events-auto bg-white/95 backdrop-blur-2xl rounded-[26px] border border-gray-200/80 shadow-[0_12px_36px_-6px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.06)] px-1.5 py-1.5 flex items-center justify-between ring-1 ring-black/[0.04] select-none">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -77,7 +74,7 @@ export const BottomNavBar = ({
               key={tab.id}
               type="button"
               onClick={() => handleTabClick(tab.id)}
-              className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 active:scale-90 relative ${
+              className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition-transform duration-100 active:scale-90 relative ${
                 isActive
                   ? 'bg-rose-50/90 text-rose-600 font-bold shadow-2xs'
                   : 'text-gray-400 hover:text-gray-600 font-medium'
@@ -85,7 +82,7 @@ export const BottomNavBar = ({
             >
               <div className="relative flex items-center justify-center">
                 <Icon
-                  className={`w-5 h-5 transition-transform duration-200 ${
+                  className={`w-5 h-5 transition-transform duration-150 ${
                     isActive ? 'scale-110 stroke-[2.3]' : 'stroke-[1.8]'
                   }`}
                 />
@@ -104,7 +101,7 @@ export const BottomNavBar = ({
             </button>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 };

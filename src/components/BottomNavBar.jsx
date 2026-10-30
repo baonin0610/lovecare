@@ -59,11 +59,21 @@ export const BottomNavBar = ({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 pointer-events-none flex justify-center safe-bottom-dock"
+      className="fixed inset-x-0 bottom-2.5 sm:bottom-3 z-40 pointer-events-none flex justify-center"
+      style={{
+        transform: 'translateZ(0)',
+        WebkitTransform: 'translateZ(0)'
+      }}
       aria-label="Thanh điều hướng nổi"
     >
       {/* Floating Island Dock - Modern iOS & Facebook Floating Capsule */}
-      <nav className="w-[calc(100%-24px)] max-w-md pointer-events-auto bg-white/95 backdrop-blur-2xl rounded-[26px] border border-gray-200/80 shadow-[0_12px_36px_-6px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.06)] px-1.5 py-1.5 flex items-center justify-between ring-1 ring-black/[0.04] select-none">
+      <nav
+        className="w-[calc(100%-20px)] max-w-md pointer-events-auto bg-white/95 backdrop-blur-2xl rounded-[26px] border border-gray-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.04)] px-1 py-1.5 flex items-center justify-between ring-1 ring-black/[0.04] select-none"
+        style={{
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)'
+        }}
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -74,7 +84,7 @@ export const BottomNavBar = ({
               key={tab.id}
               type="button"
               onClick={() => handleTabClick(tab.id)}
-              className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition-transform duration-100 active:scale-90 relative ${
+              className={`flex-1 py-1.5 px-0.5 rounded-2xl flex flex-col items-center justify-center transition-transform duration-100 active:scale-90 relative ${
                 isActive
                   ? 'bg-rose-50/90 text-rose-600 font-bold shadow-2xs'
                   : 'text-gray-400 hover:text-gray-600 font-medium'
@@ -89,13 +99,13 @@ export const BottomNavBar = ({
 
                 {/* Numeric Red Badge for Partner Actions */}
                 {badgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[9px] font-black min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center shadow-md border-2 border-white ring-1 ring-rose-500/20 animate-bounce">
+                  <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-black min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center shadow-md border-2 border-white ring-1 ring-rose-500/20 animate-bounce">
                     {badgeCount > 9 ? '9+' : badgeCount}
                   </span>
                 )}
               </div>
 
-              <span className="text-[10px] tracking-tight leading-tight mt-0.5 truncate max-w-[58px]">
+              <span className="text-[10px] tracking-tight leading-tight mt-0.5 whitespace-nowrap text-center">
                 {tab.label}
               </span>
             </button>

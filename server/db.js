@@ -263,7 +263,15 @@ class Database {
   }
 
   findCoupleByCode(code) {
-    return this.data.couples.find(c => c.code.toUpperCase() === code.toUpperCase());
+    if (!code || typeof code !== 'string') return null;
+    const clean = code.trim().toUpperCase().replace(/\s+/g, '');
+    const cleanWithHyphen = clean.startsWith('LC') && !clean.startsWith('LC-') ? 'LC-' + clean.slice(2) : clean;
+    const cleanNumeric = /^\d{4}$/.test(clean) ? 'LC-' + clean : clean;
+
+    return this.data.couples.find(c => {
+      const cCode = (c.code || '').toUpperCase().trim();
+      return cCode === clean || cCode === cleanWithHyphen || cCode === cleanNumeric;
+    });
   }
 
   createCouple(coupleData) {

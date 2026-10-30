@@ -50,9 +50,15 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         throw new Error(data.error || 'Có lỗi xảy ra');
       }
 
+      localStorage.removeItem('lovecare_user');
+      localStorage.removeItem('lovecare_couple');
       login(data.user, data.couple);
       if (data.loverName && data.user.role === 'caretaker') {
-        showToast(`Đã kết nối với bạn gái tên: ${data.loverName}`);
+        showToast(`Đã kết nối với bạn gái: ${data.loverName}`);
+      } else if (data.user.role === 'lover') {
+        showToast(`Đăng ký thành công! Hãy gửi mã kết nối cho bạn trai nhé ❤️`);
+      } else {
+        showToast(`Đăng ký thành công!`);
       }
       onClose();
     } catch (err) {
@@ -173,16 +179,21 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
               {role === 'caretaker' ? (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Mã kết nối do bạn gái gửi (nếu có):
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">
+                      Mã kết nối từ bạn gái (không bắt buộc):
+                    </label>
+                  </div>
                   <input
                     type="text"
                     value={coupleCode}
                     onChange={(e) => setCoupleCode(e.target.value)}
-                    placeholder="VD: LC-8392 (có thể nhập sau khi đăng nhập)"
+                    placeholder="VD: LC-8392 hoặc để trống"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs uppercase font-mono focus:outline-none focus:ring-2 focus:ring-rose-400"
                   />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Có thể để trống để đăng ký tài khoản trước rồi ghép đôi sau.
+                  </p>
                 </div>
               ) : (
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-[11px] text-gray-600 leading-relaxed">

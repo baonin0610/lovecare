@@ -328,10 +328,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData, coupleData) => {
     setUser(userData);
-    setCouple(coupleData);
+    setCouple(coupleData || null);
     localStorage.setItem('lovecare_user', JSON.stringify(userData));
     if (coupleData) {
       localStorage.setItem('lovecare_couple', JSON.stringify(coupleData));
+    } else {
+      localStorage.removeItem('lovecare_couple');
     }
   };
 

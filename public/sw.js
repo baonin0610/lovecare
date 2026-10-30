@@ -1,5 +1,5 @@
 // Service Worker for LoveCare PWA (Network-first with offline fallback)
-const CACHE_NAME = 'lovecare-v4';
+const CACHE_NAME = 'lovecare-v5';
 
 // In-memory cache for recent push tags to prevent duplicated OS notifications
 const recentPushTags = new Map();
@@ -82,18 +82,20 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const notifTag = payload.tag || `lovecare-${Date.now()}`;
+  const notifTag = `${payload.tag || 'lovecare'}-${Date.now()}`;
 
-  // 1. Deduplication: Check if this exact notification tag was already processed within last 6 seconds
+  // 1. Deduplication: Check if this exact notification tag was already processed within last 2 seconds
   const now = Date.now();
-  if (recentPushTags.has(notifTag)) {
-    const prevTime = recentPushTags.get(notifTag);
-    if (now - prevTime < 6000) {
-      console.log(`[SW] Suppressed duplicate push notification for tag: ${notifTag}`);
+  if (payload.tag && recentPushTags.has(payload.tag)) {
+    const prevTime = recentPushTags.get(payload.tag);
+    if (now - prevTime < 2000) {
+      console.log(`[SW] Suppressed duplicate push notification for tag: ${payload.tag}`);
       return;
     }
   }
-  recentPushTags.set(notifTag, now);
+  if (payload.tag) {
+    recentPushTags.set(payload.tag, now);
+  }
 
   // Clean old tags from map to prevent memory leak
   if (recentPushTags.size > 50) {
@@ -114,8 +116,9 @@ self.addEventListener('push', (event) => {
     badge: '/icon-192.png',
     vibrate: [600, 200, 600, 200, 600, 400],
     tag: notifTag,
-    renotify: false, // Prevents duplicate buzzed banners with same tag
+    renotify: true,
     requireInteraction: true,
+    silent: false,
     data: {
       url: payload.url || `/?forceAlarm=1&t=${Date.now()}`,
       alarmId: payload.alarmId,
@@ -127,17 +130,12 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // 3. Deduplicate Push vs In-App Alert:
-      // If user is actively using the app (screen focused and visible), suppress OS banner completely!
-      const isForegroundFocused = clientList.some(c => c.focused && c.visibilityState === 'visible');
-      if (isForegroundFocused) {
-        // App is already open right in front of user -> postMessage to trigger in-app modal/toast without duplicate OS banner
-        clientList.forEach(c => {
-          c.postMessage({ type: 'TRIGGER_MANDATORY_ALARM', payload });
-        });
-        return;
-      }
-      // If phone is locked, app is closed or minimized -> show native OS lock-screen notification!
+      // 1. Broadcast to any open app windows to update in-app UI immediately
+      clientList.forEach((c) => {
+        c.postMessage({ type: 'TRIGGER_MANDATORY_ALARM', payload });
+      });
+
+      // 2. Always trigger OS system notification so iPhone displays floating banner / lock screen alert
       return self.registration.showNotification(payload.title, options);
     })
   );

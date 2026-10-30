@@ -264,16 +264,40 @@ app.post('/api/auth/login', (req, res) => {
 app.post('/api/auth/register', (req, res) => {
   const { username, password, name, role, coupleCode } = req.body;
 
-  if (!username || !password || !name || !role) {
+  const cleanUsername = (username || '').trim().toLowerCase();
+  const cleanPassword = (password || '').trim();
+  const cleanName = (name || '').trim();
+
+  if (!cleanUsername || !cleanPassword || !cleanName || !role) {
     return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
   }
 
-  if (db.findUserByUsername(username)) {
-    return res.status(400).json({ error: 'Tên đăng nhập đã tồn tại' });
+  if (cleanUsername.length < 3) {
+    return res.status(400).json({ error: 'Tên đăng nhập phải có ít nhất 3 ký tự' });
   }
 
-  let couple = null;
+  if (cleanPassword.length < 4) {
+    return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 4 ký tự' });
+  }
+
+  if (db.findUserByUsername(cleanUsername)) {
+    return res.status(400).json({ error: 'Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.' });
+  }
+
   const userId = uuidv4();
+  let couple = null;
+
+  // 1. Create User first in users table to prevent Foreign Key constraints
+  const newUser = db.createUser({
+    id: userId,
+    username: cleanUsername,
+    password: cleanPassword,
+    name: cleanName,
+    role,
+    avatar: role === 'caretaker' ? 'caretaker' : 'lover',
+    coupleId: null,
+    createdAt: new Date().toISOString()
+  });
 
   if (role === 'lover') {
     // Bạn nữ tự động được cấp mã kết nối riêng (VD: LC-8392)
@@ -281,13 +305,18 @@ app.post('/api/auth/register', (req, res) => {
     const newCouple = {
       id: uuidv4(),
       code,
-      name: `${name} & Bạn trai`,
+      name: `${cleanName} & Bạn trai`,
       caretakerId: null,
       loverId: userId,
+      loverName: cleanName,
       targetWaterMl: 2000,
       createdAt: new Date().toISOString()
     };
     couple = db.createCouple(newCouple);
+
+    // Update coupleId for user
+    newUser.coupleId = couple.id;
+    db.updateUser(userId, { coupleId: couple.id });
 
     // Mốc nhắc nhở mặc định
     const defaultReminders = [
@@ -365,43 +394,40 @@ app.post('/api/auth/register', (req, res) => {
     defaultReminders.forEach(r => db.createReminder(r));
   } else {
     // Bạn nam đăng ký
-    if (coupleCode) {
-      couple = db.findCoupleByCode(coupleCode.trim().toUpperCase());
-      if (!couple) {
-        return res.status(404).json({ error: 'Mã kết nối không hợp lệ. Vui lòng kiểm tra lại mã bạn gái đã gửi.' });
+    if (coupleCode && coupleCode.trim()) {
+      const foundCouple = db.findCoupleByCode(coupleCode.trim());
+      if (!foundCouple) {
+        // Rollback created user so no orphan record remains
+        const userIdx = db.data.users.findIndex(u => u.id === userId);
+        if (userIdx !== -1) db.data.users.splice(userIdx, 1);
+        return res.status(404).json({ error: 'Mã kết nối không hợp lệ. Vui lòng kiểm tra lại mã hoặc để trống ô mã để ghép đôi sau!' });
       }
+
+      couple = foundCouple;
       const loverUser = couple.loverId ? db.findUserById(couple.loverId) : null;
-      const loverName = loverUser ? loverUser.name : 'Bạn gái';
+      const loverName = loverUser ? loverUser.name : (couple.loverName || 'Bạn gái');
 
       couple.caretakerId = userId;
-      couple.name = `${couple.name.replace(' & Bạn trai', '')} & ${name}`;
+      couple.caretakerName = cleanName;
+      couple.name = `${loverName} & ${cleanName}`;
       db.updateCouple(couple.id, couple);
 
+      newUser.coupleId = couple.id;
+      db.updateUser(userId, { coupleId: couple.id });
+
       io.to(`couple:${couple.id}`).emit('couple_connected', {
-        couple,
-        caretakerName: name,
+        couple: enrichCouple(couple),
+        caretakerName: cleanName,
         loverName
       });
     }
   }
 
-  const newUser = db.createUser({
-    id: userId,
-    username,
-    password,
-    name,
-    role,
-    avatar: role === 'caretaker' ? 'caretaker' : 'lover',
-    coupleId: couple ? couple.id : null,
-    createdAt: new Date().toISOString()
-  });
-
-  const loverUser = couple?.loverId ? db.findUserById(couple.loverId) : null;
-
+  const enriched = enrichCouple(couple);
   res.json({
     user: newUser,
-    couple,
-    loverName: loverUser ? loverUser.name : null
+    couple: enriched,
+    loverName: enriched?.loverName || null
   });
 });
 
@@ -416,7 +442,7 @@ app.post('/api/couple/connect-by-code', (req, res) => {
   const user = db.findUserById(userId);
   if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
 
-  const couple = db.findCoupleByCode(code.trim().toUpperCase());
+  const couple = db.findCoupleByCode(code.trim());
   if (!couple) {
     return res.status(404).json({ error: 'Không tìm thấy phòng với mã này. Hãy kiểm tra lại mã bạn gái gửi nhé!' });
   }

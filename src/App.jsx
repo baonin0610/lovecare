@@ -294,7 +294,16 @@ export function App() {
                   })
                 }).catch(() => {});
               } else {
-                setPushStatus('needs_permission');
+                // Permission was already granted by user: Auto-subscribe to ensure server has valid PushSubscription
+                subscribePushNotifications(user, couple)
+                  .then((res) => {
+                    if (res.success) {
+                      setPushStatus('subscribed');
+                    } else {
+                      setPushStatus('needs_permission');
+                    }
+                  })
+                  .catch(() => setPushStatus('needs_permission'));
               }
             }).catch(() => setPushStatus('needs_permission'));
           } else {

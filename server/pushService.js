@@ -107,11 +107,13 @@ export async function sendPushNotification(subscription, payload) {
     tag: payload.tag || `lovecare-${Date.now()}`,
     icon: payload.icon || '/icon-192.png',
     badge: payload.badge || '/icon-192.png',
+    badgeCount: payload.badgeCount || 1,
     url: payload.url || '/',
     alarmId: payload.alarmId || null,
     data: {
       url: payload.url || '/',
-      alarmId: payload.alarmId || null
+      alarmId: payload.alarmId || null,
+      badgeCount: payload.badgeCount || 1
     }
   });
 

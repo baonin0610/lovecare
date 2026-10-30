@@ -52,7 +52,7 @@ import {
 } from '../services/date';
 
 export const CaretakerView = () => {
-  const { user, couple, socket, showToast, login, testAlarm } = useAuth();
+  const { user, couple, socket, showToast, login, testAlarm, lastSyncTimestamp } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
@@ -242,6 +242,18 @@ export const CaretakerView = () => {
       socket.off('day_changed', handleDayChanged);
     };
   }, [socket, user, couple]);
+
+  // Resume Sync: automatically re-fetch latest checkins & reminders when boyfriend unlocks phone or reconnects
+  useEffect(() => {
+    if (lastSyncTimestamp) {
+      loadData();
+      const today = getLocalTodayString();
+      if (today !== currentDayStr) {
+        console.log('[CaretakerView] Day rollover detected during resume sync:', today);
+        setCurrentDayStr(today);
+      }
+    }
+  }, [lastSyncTimestamp]);
 
   const handleAddReminder = async (data) => {
     await api.createReminder(user, couple, data);

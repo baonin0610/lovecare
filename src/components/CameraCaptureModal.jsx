@@ -225,7 +225,19 @@ export const CameraCaptureModal = ({ isOpen, onClose, reminder, onComplete }) =>
         formData.append('mealCategory', reminder.mealCategory);
       }
 
-      await onComplete(formData);
+      const checkinTitle = reminder?.title || (reminder?.type === 'water' ? 'Uống nước' : 'Ăn uống');
+      const checkinType = reminder?.type || 'water';
+
+      await onComplete(formData, {
+        file: capturedImage.file,
+        reminderId: reminder?.id || '',
+        type: checkinType,
+        title: checkinTitle,
+        note,
+        waterAmountMl: checkinType === 'water' ? waterAmount : null,
+        mealCategory: reminder?.mealCategory || null,
+        previewUrl: capturedImage.previewUrl
+      });
 
       // Trigger festive confetti & victory sound
       confetti({

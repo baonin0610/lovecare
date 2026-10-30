@@ -19,6 +19,7 @@ import {
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getLocalTodayString, getVietnamTimeString } from '../services/date';
+import { badgeService } from '../services/badgeService';
 
 export const DiagnosticModal = ({
   isOpen,
@@ -27,7 +28,7 @@ export const DiagnosticModal = ({
   reminders = [],
   onForceSync
 }) => {
-  const { user, couple, socket, showToast } = useAuth();
+  const { user, couple, socket, showToast, pendingQueueCount, retryOfflineQueue } = useAuth();
   const [loading, setLoading] = useState(false);
   const [diagData, setDiagData] = useState(null);
   const [latency, setLatency] = useState(null);
@@ -95,6 +96,8 @@ Real-time Socket: ${isSocketConnected ? 'Đã kết nối (ID: ' + socket?.id + 
 Ảnh check-in máy khách: ${checkins.length} lượt (Hôm nay: ${todayPhotosCount})
 Ảnh check-in máy chủ: ${serverPhotosCount} lượt
 Đồng bộ ảnh: ${isPhotoSyncMatch ? 'Khớp hoàn toàn' : 'Có chênh lệch'}
+Hàng đợi ảnh ngoại tuyến: ${pendingQueueCount} ảnh
+Huy hiệu số đỏ (App Badging): ${badgeService.isSupported() ? 'Hỗ trợ' : 'Không hỗ trợ'}
 Quyền thông báo: ${notifPermission}
 Chế độ PWA: ${isPwa ? 'Đã cài đặt màn hình chính' : 'Trình duyệt Web'}
 Múi giờ máy: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
@@ -298,7 +301,53 @@ Ngày hôm nay: ${localToday}
             </div>
           </div>
 
-          {/* Card 5: Múi giờ Việt Nam */}
+          {/* Card 5: Hàng đợi Ngoại tuyến & Huy hiệu số đỏ */}
+          <div className="p-3.5 rounded-2xl bg-white border border-gray-200/80 shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                <span className="font-bold text-xs text-gray-800">Tính năng Ngoại tuyến & Trải nghiệm gốc</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-bold">
+                Tối ưu PWA
+              </span>
+            </div>
+
+            <div className="space-y-2 text-[11px] text-gray-600">
+              <div className="flex items-center justify-between">
+                <span>Hàng đợi gửi ảnh (Offline Queue):</span>
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold ${pendingQueueCount > 0 ? 'text-amber-600 font-bold' : 'text-emerald-600'}`}>
+                    {pendingQueueCount > 0 ? `${pendingQueueCount} ảnh đang chờ sóng` : 'Trống (Đã gửi hết)'}
+                  </span>
+                  {pendingQueueCount > 0 && (
+                    <button
+                      onClick={retryOfflineQueue}
+                      className="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-[10px] font-bold active:scale-95"
+                    >
+                      Gửi ngay
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span>Huy hiệu số đỏ (App Badging):</span>
+                <span className="font-semibold text-emerald-600">
+                  {badgeService.isSupported() ? '✅ Đã hỗ trợ trên thiết bị này' : 'ℹ️ Hỗ trợ trên iOS PWA & Chrome'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span>Lọc thông báo trùng lặp:</span>
+                <span className="font-semibold text-emerald-600">
+                  ✅ Tự động tắt rung khi đang mở app
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 6: Múi giờ Việt Nam */}
           <div className="p-3 rounded-xl bg-gray-50 border border-gray-200/60 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-gray-500" />

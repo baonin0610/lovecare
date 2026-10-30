@@ -84,12 +84,16 @@ export const api = {
     if (user?.id) headers['x-user-id'] = user.id;
     if (couple?.id) headers['x-couple-id'] = couple.id;
 
-    const res = await fetch('/api/checkins', {
-      method: 'POST',
-      headers,
-      body: formData
-    });
-    return res.json();
+    try {
+      const res = await fetch('/api/checkins', {
+        method: 'POST',
+        headers,
+        body: formData
+      });
+      return await res.json();
+    } catch (err) {
+      return { error: err.message || 'Lỗi kết nối mạng khi tải ảnh', isNetworkError: true };
+    }
   },
 
   async reactToCheckin(user, couple, id, reaction) {

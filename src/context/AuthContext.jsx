@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { sounds } from '../services/audio';
 import { alarm } from '../services/alarm';
 import { unsubscribePushNotifications } from '../services/push';
+import { badgeService } from '../services/badgeService';
+import { offlineQueue } from '../services/offlineQueue';
+import { getLocalTodayString } from '../services/date';
 
 const AuthContext = createContext(null);
 
@@ -37,6 +40,12 @@ export const AuthProvider = ({ children }) => {
   const [activeSweetCare, setActiveSweetCare] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Resume Sync & Offline Queue state
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState(() => Date.now());
+  const [pendingQueueCount, setPendingQueueCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  const lastSyncCallRef = useRef(0);
+
   // Locket Chat Box state
   const [isChatBoxOpen, setIsChatBoxOpen] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -49,6 +58,124 @@ export const AuthProvider = ({ children }) => {
       setToastMessage(null);
     }, 4000);
   };
+
+  // Resume Sync: re-fetch missing events & process offline queue when waking up
+  const triggerResumeSync = useCallback(async (reason = 'auto') => {
+    const now = Date.now();
+    // Cooldown 3.5 seconds to avoid double rapid calls
+    if (now - lastSyncCallRef.current < 3500) {
+      return;
+    }
+    lastSyncCallRef.current = now;
+    console.log(`[ResumeSync] Triggering sync (reason: ${reason}) at ${new Date().toLocaleTimeString()}`);
+    setLastSyncTimestamp(now);
+
+    // Re-join socket rooms if connected
+    if (socket?.connected) {
+      if (couple?.id) socket.emit('join_couple', couple.id);
+      if (user?.id) socket.emit('join_user', user.id);
+    }
+
+    // Process pending offline checkin queue
+    if (user && couple && (typeof navigator === 'undefined' || navigator.onLine)) {
+      try {
+        await offlineQueue.processQueue(user, couple, {
+          onItemSuccess: (saved, item) => {
+            showToast(`✨ Đã tự động gửi ảnh xác thực [${item.title || 'Uống nước'}] khi có sóng!`);
+            sounds.playSuccess();
+          }
+        });
+      } catch (e) {
+        console.warn('[ResumeSync] Offline queue processing error:', e);
+      }
+    }
+  }, [socket, user, couple]);
+
+  // Manually retry all pending offline uploads
+  const retryOfflineQueue = useCallback(async () => {
+    if (!user || !couple) return { remaining: 0 };
+    try {
+      const res = await offlineQueue.processQueue(user, couple, {
+        onItemSuccess: (saved, item) => {
+          showToast(`✨ Đã gửi thành công ảnh [${item.title || 'Uống nước'}]!`);
+          sounds.playSuccess();
+        }
+      });
+      if (res.successCount > 0) {
+        setLastSyncTimestamp(Date.now());
+        showToast(`Đã gửi thành công ${res.successCount} ảnh trong hàng đợi!`);
+      } else if (res.remaining > 0) {
+        showToast(`Còn ${res.remaining} ảnh chưa gửi được, vui lòng kiểm tra kết nối mạng nhé!`);
+      } else {
+        showToast('Hàng đợi trống, không có ảnh nào cần gửi.');
+      }
+      return res;
+    } catch (e) {
+      showToast('Lỗi khi gửi lại: ' + e.message);
+      return { remaining: 0 };
+    }
+  }, [user, couple]);
+
+  // Subscribe to offline queue changes
+  useEffect(() => {
+    const unsub = offlineQueue.subscribe((count) => {
+      setPendingQueueCount(count);
+    });
+    return unsub;
+  }, []);
+
+  // Update native App Badge (iOS 16.4+ & Chromium) when unread count changes
+  useEffect(() => {
+    if (unreadChatCount > 0) {
+      badgeService.setBadge(unreadChatCount);
+    } else {
+      badgeService.clearBadge();
+    }
+  }, [unreadChatCount]);
+
+  // Listen to Phone Unlock (visibilitychange), Window Focus, Network Online/Offline
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        triggerResumeSync('phone_unlocked');
+        if (unreadChatCount === 0) {
+          badgeService.clearBadge();
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      triggerResumeSync('window_focus');
+      if (unreadChatCount === 0) {
+        badgeService.clearBadge();
+      }
+    };
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      showToast('📶 Đã khôi phục kết nối mạng!');
+      triggerResumeSync('network_online');
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      showToast('⚠️ Mất kết nối mạng. Ảnh chụp sẽ được lưu tạm trong máy.');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [triggerResumeSync, unreadChatCount]);
 
   // Socket connection
   useEffect(() => {
@@ -65,8 +192,13 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    s.on('connect', joinRooms);
-    s.on('reconnect', joinRooms);
+    s.on('connect', () => {
+      joinRooms();
+    });
+    s.on('reconnect', () => {
+      joinRooms();
+      triggerResumeSync('socket_reconnect');
+    });
     if (s.connected) {
       joinRooms();
     }
@@ -307,6 +439,17 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const handleSetIsChatBoxOpen = (openOrFn) => {
+    setIsChatBoxOpen((prev) => {
+      const next = typeof openOrFn === 'function' ? openOrFn(prev) : openOrFn;
+      if (next) {
+        setUnreadChatCount(0);
+        badgeService.clearBadge();
+      }
+      return next;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -327,10 +470,15 @@ export const AuthProvider = ({ children }) => {
         toastMessage,
         showToast,
         isChatBoxOpen,
-        setIsChatBoxOpen,
+        setIsChatBoxOpen: handleSetIsChatBoxOpen,
         unreadChatCount,
         setUnreadChatCount,
-        lastChatMessage
+        lastChatMessage,
+        lastSyncTimestamp,
+        triggerResumeSync,
+        pendingQueueCount,
+        retryOfflineQueue,
+        isOnline
       }}
     >
       {children}

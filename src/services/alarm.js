@@ -9,6 +9,7 @@ class AlarmService {
     this.vibrationInterval = null;
     this.isPlayingSound = false;
     this.isVibrating = false;
+    this.recentNotifications = new Map();
   }
 
   // Request Notification permission (required for Lock Screen notifications on iOS 16.4+)
@@ -30,6 +31,28 @@ class AlarmService {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return false;
     }
+
+    // Deduplication 1: If user is actively looking at the app in foreground with window focused,
+    // suppress the redundant OS banner to avoid double alerting alongside the in-app modal/toast
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && (typeof document.hasFocus === 'function' ? document.hasFocus() : true)) {
+      return false;
+    }
+
+    // Deduplication 2: Suppress identical notification tags sent within 6 seconds
+    const now = Date.now();
+    const finalTag = tag || `alarm-${now}`;
+    if (this.recentNotifications.has(finalTag)) {
+      if (now - this.recentNotifications.get(finalTag) < 6000) {
+        return false;
+      }
+    }
+    this.recentNotifications.set(finalTag, now);
+    if (this.recentNotifications.size > 50) {
+      for (const [k, t] of this.recentNotifications.entries()) {
+        if (now - t > 30000) this.recentNotifications.delete(k);
+      }
+    }
+
     if (Notification.permission !== 'granted') {
       console.warn('[Alarm] Notification permission is not granted:', Notification.permission);
       return false;
@@ -39,10 +62,10 @@ class AlarmService {
       body: body || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: tag || `alarm-${Date.now()}`,
+      tag: finalTag,
       vibrate: [500, 200, 500, 200, 500, 200, 1000],
       requireInteraction: true, // Stays on screen until dismissed or acted upon
-      renotify: true,
+      renotify: false,
       silent: false,
       data: { url: '/' }
     };

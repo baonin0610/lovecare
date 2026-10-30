@@ -1,5 +1,8 @@
 // Service Worker for LoveCare PWA (Network-first with offline fallback)
-const CACHE_NAME = 'lovecare-v3';
+const CACHE_NAME = 'lovecare-v4';
+
+// In-memory cache for recent push tags to prevent duplicated OS notifications
+const recentPushTags = new Map();
 
 self.addEventListener('install', (event) => {
   // Activate worker immediately
@@ -17,13 +20,26 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Support manual cache busting / update reload from app
+// Support manual cache busting / update reload & badge commands from app
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (!event.data) return;
+
+  if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
+  if (event.data.type === 'CLEAR_CACHE') {
     caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+  }
+  // Badging support via Service Worker
+  if (event.data.type === 'SET_BADGE') {
+    if (self.navigator && 'setAppBadge' in self.navigator) {
+      self.navigator.setAppBadge(event.data.count || 1).catch(() => {});
+    }
+  }
+  if (event.data.type === 'CLEAR_BADGE') {
+    if (self.navigator && 'clearAppBadge' in self.navigator) {
+      self.navigator.clearAppBadge().catch(() => {});
+    }
   }
 });
 
@@ -67,6 +83,31 @@ self.addEventListener('push', (event) => {
   }
 
   const notifTag = payload.tag || `lovecare-${Date.now()}`;
+
+  // 1. Deduplication: Check if this exact notification tag was already processed within last 6 seconds
+  const now = Date.now();
+  if (recentPushTags.has(notifTag)) {
+    const prevTime = recentPushTags.get(notifTag);
+    if (now - prevTime < 6000) {
+      console.log(`[SW] Suppressed duplicate push notification for tag: ${notifTag}`);
+      return;
+    }
+  }
+  recentPushTags.set(notifTag, now);
+
+  // Clean old tags from map to prevent memory leak
+  if (recentPushTags.size > 50) {
+    for (const [tagKey, tagTime] of recentPushTags.entries()) {
+      if (now - tagTime > 30000) recentPushTags.delete(tagKey);
+    }
+  }
+
+  // 2. Set App Badge if supported on device
+  if (self.navigator && 'setAppBadge' in self.navigator) {
+    const badgeCount = payload.badgeCount || 1;
+    self.navigator.setAppBadge(badgeCount).catch(() => {});
+  }
+
   const options = {
     body: payload.body,
     icon: '/icon-192.png',
@@ -79,16 +120,18 @@ self.addEventListener('push', (event) => {
       url: payload.url || `/?forceAlarm=1&t=${Date.now()}`,
       alarmId: payload.alarmId,
       title: payload.title,
-      body: payload.body
+      body: payload.body,
+      badgeCount: payload.badgeCount || 1
     }
   };
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Check if user is actively in the app with screen focused and visible
+      // 3. Deduplicate Push vs In-App Alert:
+      // If user is actively using the app (screen focused and visible), suppress OS banner completely!
       const isForegroundFocused = clientList.some(c => c.focused && c.visibilityState === 'visible');
       if (isForegroundFocused) {
-        // App is already open right in front of user -> postMessage to trigger in-app alarm without duplicate OS banner
+        // App is already open right in front of user -> postMessage to trigger in-app modal/toast without duplicate OS banner
         clientList.forEach(c => {
           c.postMessage({ type: 'TRIGGER_MANDATORY_ALARM', payload });
         });
@@ -103,6 +146,12 @@ self.addEventListener('push', (event) => {
 // Handle notification tap / click -> open or focus the LoveCare PWA and trigger full screen alarm
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Clear app badge when user clicks / acts on notification
+  if (self.navigator && 'clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {});
+  }
+
   const targetUrl = (event.notification.data && event.notification.data.url) || '/';
   const notifData = event.notification.data || {};
 

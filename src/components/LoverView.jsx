@@ -33,6 +33,7 @@ import { LoverDashboardSkeleton } from './SkeletonShimmer';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { alarm } from '../services/alarm';
+import { offlineQueue } from '../services/offlineQueue';
 import {
   getLocalTodayString,
   isCheckinFromToday,
@@ -51,7 +52,7 @@ import {
 } from '../services/date';
 
 export const LoverView = () => {
-  const { user, couple, socket, showToast, testAlarm } = useAuth();
+  const { user, couple, socket, showToast, testAlarm, lastSyncTimestamp, pendingQueueCount, retryOfflineQueue } = useAuth();
   const [reminders, setReminders] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [stats, setStats] = useState(null);
@@ -233,6 +234,18 @@ export const LoverView = () => {
     };
   }, [socket, user, couple]);
 
+  // Resume Sync hook: re-fetch missing check-ins and check for day rollover when phone wakes up
+  useEffect(() => {
+    if (lastSyncTimestamp) {
+      loadData();
+      const today = getLocalTodayString();
+      if (today !== currentDayStr) {
+        console.log('[LoverView] Day rollover detected during resume sync:', today);
+        setCurrentDayStr(today);
+      }
+    }
+  }, [lastSyncTimestamp]);
+
   const handleOpenSnap = (reminder) => {
     if (reminder?.time && isSessionUpcoming(reminder.time)) {
       const remSession = getSessionForReminder(reminder.time);
@@ -249,13 +262,50 @@ export const LoverView = () => {
     setIsCameraOpen(true);
   };
 
-  const handleCompleteCheckin = async (formData) => {
+  const handleCompleteCheckin = async (formData, rawData) => {
+    // 1. If phone is currently completely offline, queue directly into IndexedDB without network delay
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (rawData?.file) {
+        await offlineQueue.enqueueCheckin({
+          photoBlob: rawData.file,
+          fileName: rawData.file.name,
+          reminderId: rawData.reminderId,
+          type: rawData.type,
+          title: rawData.title,
+          note: rawData.note,
+          waterAmountMl: rawData.waterAmountMl,
+          mealCategory: rawData.mealCategory,
+          date: currentDayStr
+        });
+        showToast('📶 Đang mất sóng! Ảnh đã lưu an toàn trong máy và sẽ tự động gửi khi có mạng.');
+        return { offlineQueued: true };
+      }
+    }
+
     try {
       const saved = await api.createCheckin(user, couple, formData);
-      if (!saved || saved.error) {
+      if (!saved || saved.error || saved.isNetworkError) {
+        // If network issue occurred, enqueue into IndexedDB
+        if (rawData?.file && (saved?.isNetworkError || !navigator.onLine || saved?.error?.includes('kết nối') || saved?.error?.includes('fetch'))) {
+          await offlineQueue.enqueueCheckin({
+            photoBlob: rawData.file,
+            fileName: rawData.file.name,
+            reminderId: rawData.reminderId,
+            type: rawData.type,
+            title: rawData.title,
+            note: rawData.note,
+            waterAmountMl: rawData.waterAmountMl,
+            mealCategory: rawData.mealCategory,
+            date: currentDayStr
+          });
+          showToast('📶 Mạng chập chờn! Ảnh đã lưu an toàn và sẽ tự động gửi khi có sóng.');
+          return { offlineQueued: true };
+        }
+
         showToast(`Không thể gửi ảnh: ${saved?.error || 'Lỗi kết nối'}`);
         throw new Error(saved?.error || 'Lỗi kết nối');
       }
+
       showToast('Đã gửi ảnh xác thực thành công. ❤️');
       setCheckins((prev) => {
         if (prev.some((c) => c.id === saved.id)) return prev;
@@ -264,6 +314,21 @@ export const LoverView = () => {
       await loadData();
       return saved;
     } catch (err) {
+      if (rawData?.file) {
+        await offlineQueue.enqueueCheckin({
+          photoBlob: rawData.file,
+          fileName: rawData.file.name,
+          reminderId: rawData.reminderId,
+          type: rawData.type,
+          title: rawData.title,
+          note: rawData.note,
+          waterAmountMl: rawData.waterAmountMl,
+          mealCategory: rawData.mealCategory,
+          date: currentDayStr
+        });
+        showToast('📶 Mất kết nối khi gửi! Ảnh đã lưu an toàn trong máy và sẽ gửi lại khi có sóng.');
+        return { offlineQueued: true };
+      }
       console.error('Error submitting checkin:', err);
       throw err;
     }
@@ -393,6 +458,32 @@ export const LoverView = () => {
 
   return (
     <div className="pb-24">
+      {/* Offline Pending Photos Queue Banner */}
+      {pendingQueueCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-3.5 mb-4 flex items-center justify-between text-xs text-amber-900 shadow-xs animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-3 w-3 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
+            </span>
+            <div>
+              <p className="font-bold text-amber-900">
+                Đang mất sóng • Có {pendingQueueCount} ảnh trong hàng đợi
+              </p>
+              <p className="text-[11px] text-amber-700">
+                Ảnh đã lưu an toàn trên máy và sẽ tự động gửi ngay khi có sóng lại nhé! ❤️
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={retryOfflineQueue}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs shrink-0 ml-2"
+          >
+            Gửi lại
+          </button>
+        </div>
+      )}
+
       {/* If Not Connected: Show Girlfriend's Code to Send to Boyfriend */}
       {!couple?.caretakerId && couple?.code && (
         <div className="bg-gradient-to-r from-rose-50 via-white to-pink-50 rounded-3xl p-5 border-2 border-rose-300 shadow-md mb-5">

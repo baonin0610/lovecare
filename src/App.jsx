@@ -463,7 +463,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-gray-900 flex flex-col items-center">
+    <div className="h-full h-[100dvh] w-full bg-[#FAFAFA] text-gray-900 flex flex-col items-center overflow-hidden fixed inset-0">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 z-50 transition-all animate-in fade-in slide-in-from-top-3">
@@ -473,10 +473,10 @@ export function App() {
         </div>
       )}
 
-      {/* Main Container - optimized for iPhone width & responsive desktop with Safe Area */}
-      <div className="w-full max-w-lg min-h-screen flex flex-col px-4 safe-top-header">
+      {/* Main Container - App Shell structure */}
+      <div className="w-full max-w-lg h-full flex flex-col relative overflow-hidden safe-top-header">
         {/* App Top Bar */}
-        <header className="flex items-center justify-between py-2 mb-3 border-b border-gray-100 pb-3">
+        <header className="flex items-center justify-between py-2 mb-1 border-b border-gray-100 pb-2 px-4 shrink-0 bg-[#FAFAFA]/95 backdrop-blur-md z-20">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-sm">
@@ -830,7 +830,7 @@ export function App() {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1">
+        <main className="flex-1 overflow-y-auto px-4 pb-28 sm:pb-32 overscroll-contain no-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
           {user ? (
             isCaretaker ? (
               <CaretakerView navTab={activeNavTab} onNavTabChange={handleSelectNavTab} />
@@ -907,12 +907,12 @@ export function App() {
               </div>
             </div>
           )}
-        </main>
 
-        {/* Global App Footer */}
-        <footer className="mt-auto py-5 text-center text-xs text-gray-400 font-medium select-none">
-          Phát triển bởi Bảo Duy
-        </footer>
+          {/* Global App Footer */}
+          <footer className="mt-auto py-5 text-center text-xs text-gray-400 font-medium select-none">
+            Phát triển bởi Bảo Duy
+          </footer>
+        </main>
       </div>
 
       {/* App Update Prompt Modal */}
@@ -1043,7 +1043,14 @@ export function App() {
 
       {/* Floating Locket Chat Preview pill above Bottom Nav */}
       {user && lastChatMessage && !isChatBoxOpen && (
-        <div className="fixed bottom-24 right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+        <div
+          className="fixed right-4 z-40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2"
+          style={{
+            bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+            transform: 'translateZ(0)',
+            WebkitTransform: 'translateZ(0)'
+          }}
+        >
           <button
             onClick={() => {
               setIsChatBoxOpen(true);
